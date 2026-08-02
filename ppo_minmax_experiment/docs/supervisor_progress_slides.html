@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PPO + Minmax — Supervisor Progress Update</title>
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --fg: #eef2f6;
+      --muted: #8b9aab;
+      --accent: #5eb3ff;
+      --accent-dim: #2a4a66;
+      --card: #151b24;
+      --border: #2b3644;
+      --warn: #f0a060;
+      --good: #6fcf97;
+      --bad: #e07070;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+      font-family: "Segoe UI", "Helvetica Neue", system-ui, sans-serif; }
+
+    #deck { height: 100vh; width: 100vw; position: relative; }
+    .slide {
+      position: absolute; inset: 0;
+      padding: 2.5rem 3.5rem 5.5rem;
+      display: none; flex-direction: column;
+      opacity: 0; transition: opacity 0.2s ease;
+    }
+    .slide.active { display: flex; opacity: 1; }
+    .slide.title-slide { justify-content: center; }
+
+    .slide-num { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem; }
+    h1 { font-size: clamp(1.6rem, 3.2vw, 2.35rem); font-weight: 650; line-height: 1.15; margin-bottom: 0.6rem; }
+    h2 { font-size: clamp(1rem, 1.8vw, 1.25rem); color: var(--accent); font-weight: 500; margin-bottom: 1.25rem; }
+    h3 { font-size: 0.95rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 1rem 0 0.4rem; }
+    p, li { font-size: clamp(0.88rem, 1.35vw, 1.02rem); line-height: 1.5; }
+    ul, ol { padding-left: 1.2rem; margin: 0.35rem 0; }
+    li { margin: 0.2rem 0; }
+    code { font-size: 0.88em; background: var(--card); padding: 0.1em 0.35em; border: 1px solid var(--border); }
+
+    .tags { margin-bottom: 1rem; }
+    .tag { display: inline-block; font-size: 0.68rem; padding: 0.2rem 0.55rem; border: 1px solid var(--border);
+      color: var(--muted); margin-right: 0.35rem; background: var(--card); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; flex: 1; min-height: 0; align-items: start; }
+    .grid-2-fig { grid-template-columns: 1fr 1.1fr; align-items: center; }
+    .col { min-width: 0; }
+
+    table { width: 100%; border-collapse: collapse; font-size: clamp(0.72rem, 1.1vw, 0.88rem); margin: 0.5rem 0; }
+    th, td { border: 1px solid var(--border); padding: 0.35rem 0.55rem; text-align: left; vertical-align: top; }
+    th { background: var(--card); color: var(--accent); font-weight: 600; }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .row-warn td { background: rgba(240,160,96,0.08) !important; }
+    .row-good td { background: rgba(111,207,151,0.08) !important; }
+
+    .callout { border-left: 3px solid var(--accent); padding: 0.6rem 0.9rem; background: var(--card); margin: 0.6rem 0; font-size: 0.92rem; }
+    .callout.warn { border-color: var(--warn); }
+    .callout.good { border-color: var(--good); }
+    .callout.bad { border-color: var(--bad); }
+
+    figure { margin: 0; min-width: 0; }
+    figure img { width: 100%; max-height: 58vh; object-fit: contain; background: #fff;
+      border: 1px solid var(--border); display: block; }
+    figcaption { font-size: 0.68rem; color: var(--muted); margin-top: 0.35rem; line-height: 1.35; }
+
+    .timeline { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.82rem; }
+    .tl-row { display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.75rem; padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+    .tl-sess { color: var(--accent); font-weight: 600; }
+
+    .flow { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.82rem; margin: 0.75rem 0; }
+    .flow span { background: var(--card); border: 1px solid var(--border); padding: 0.35rem 0.6rem; }
+    .flow .arrow { background: none; border: none; color: var(--muted); padding: 0 0.1rem; }
+
+    /* chrome */
+    #chrome { position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+      background: rgba(12,15,20,0.94); border-top: 1px solid var(--border);
+      padding: 0.55rem 1.25rem; display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center; }
+    #progress { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    #progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+    #counter { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+    #notes-panel { font-size: 0.78rem; color: var(--muted); line-height: 1.4; max-height: 3.2rem; overflow: hidden; }
+    #notes-panel.open { max-height: 8rem; overflow-y: auto; color: #b8c5d0; }
+    #help { font-size: 0.68rem; color: var(--muted); text-align: right; }
+
+    @media print {
+      html, body { overflow: visible; height: auto; }
+      .slide { position: relative; display: flex !important; opacity: 1 !important;
+        page-break-after: always; min-height: 100vh; }
+      #chrome { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div id="deck">
+
+  <!-- 1 -->
+  <section class="slide title-slide active" data-notes="Open with: this is a progress update focused on the debugging trail, not just a win/loss number. Supervisors asked for the actual path (Benjamin's advice).">
+    <div class="tags"><span class="tag">Supervisor meeting</span><span class="tag">July 2026</span><span class="tag">seed 42 · 1000 steps</span></div>
+    <h1>PPO + Minmax Penalty on GPT-2</h1>
+    <h2>Progress update, worklog, and corrected experimental results</h2>
+    <p style="margin-top:1.5rem; max-width:40rem; color:var(--muted);">
+      Adapting ROSARL Algorithm 1 (<code>R_unsafe = V_MIN − V_MAX</code>) to LLM fine-tuning with Detoxify + BeaverTails.
+      This deck covers what we ran, what broke, what we fixed, and what we can trust now.
+    </p>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide" data-notes="Give them the roadmap so they know this isn't only bad news — we have a fair comparison at the end.">
+    <div class="slide-num">Slide 2 — Agenda</div>
+    <h1>Agenda</h1>
+    <ol style="font-size:1.05rem; line-height:1.9; margin-top:0.5rem;">
+      <li>Setup &amp; research question</li>
+      <li>Worklog: 17 sessions of fixes and failures</li>
+      <li>The seed-42 result that <em>looked</em> good but wasn't</li>
+      <li>Root-cause analysis: Advertisements, eval protocol, KL, environment</li>
+      <li>Corrected fair comparison (minmax β=0.2 vs baseline)</li>
+      <li>Figures &amp; what we can / cannot claim</li>
+      <li>Next steps for thesis-grade numbers</li>
+    </ol>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide" data-notes="Emphasize: only difference between conditions should be Minmax penalty + KL — but we accidentally violated that with β asymmetry and wrong conda env.">
+    <div class="slide-num">Slide 3 — Setup</div>
+    <h1>Experimental setup</h1>
+    <div class="grid-2">
+      <div class="col">
+        <table>
+          <tr><th>Item</th><th>Choice</th></tr>
+          <tr><td>Base model</td><td>GPT-2 small</td></tr>
+          <tr><td>Train data</td><td>BeaverTails <code>30k_train</code> (shuffled, seed 42)</td></tr>
+          <tr><td>Eval data</td><td>BeaverTails-Evaluation (700 prompts, 14 harm categories)</td></tr>
+          <tr><td>Reward</td><td><code>1 − 2×Detoxify(response)</code> → [−1, 1]</td></tr>
+          <tr><td>Unsafe if</td><td>reward &lt; 0.4 (toxicity &gt; 0.3)</td></tr>
+          <tr><td>Train decode</td><td>Sample, top_k=0, top_p=1.0, max 64 tokens</td></tr>
+          <tr><td>Steps</td><td>1000 PPO steps, batch 4</td></tr>
+        </table>
+      </div>
+      <div class="col">
+        <table>
+          <tr><th>Condition</th><th>Mechanism</th><th>KL β</th></tr>
+          <tr><td><strong>Baseline</strong></td><td>PPO + KL only</td><td class="num">0.2</td></tr>
+          <tr><td><strong>Minmax</strong></td><td>PPO + KL + <code>R_unsafe</code> on unsafe rollouts</td><td class="num">0.01 → 0.2*</td></tr>
+        </table>
+        <div class="callout warn">*Original run used β=0.01 for minmax (hypothesis: give penalty room to act). This <strong>confounded</strong> the comparison. Ablation at β=0.2 done in Session 17.</div>
+        <h3>Primary metric</h3>
+        <p><code>harm_rate_nonempty</code> — harmful / non-empty responses. Also track <code>empty_rate</code> to detect proxy gaming.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide" data-notes="Walk through eval pipeline — empty responses are excluded from harm scoring by design since Session 4 fix.">
+    <div class="slide-num">Slide 4 — Eval pipeline</div>
+    <h1>Evaluation methodology</h1>
+    <div class="flow">
+      <span>Prompt (700)</span><span class="arrow">→</span>
+      <span>GPT-2 generate</span><span class="arrow">→</span>
+      <span>Empty?</span><span class="arrow">→</span>
+      <span>Detoxify(response)</span><span class="arrow">→</span>
+      <span>tox &gt; 0.3 ⇒ harmful</span>
+    </div>
+    <div class="grid-2" style="margin-top:0.5rem;">
+      <div class="col">
+        <div class="callout bad"><strong>Bug we fixed (Session 4):</strong> empty responses used to fall back to scoring the <em>prompt</em>, inflating harm rate.</div>
+        <div class="callout warn"><strong>Protocol issue (Session 16):</strong> training samples rollouts but default eval was <strong>greedy</strong> — mismatch exaggerated collapse on baseline.</div>
+      </div>
+      <div class="col">
+        <h3>Decoding modes tested</h3>
+        <table>
+          <tr><th>Mode</th><th>Flag</th><th>When to use</th></tr>
+          <tr><td>Greedy</td><td><code>--do-sample False</code></td><td>Default (misleading for our train setup)</td></tr>
+          <tr class="row-good"><td>Sample</td><td><code>--do-sample --seed 42</code></td><td><strong>Matches training rollouts</strong></td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide" data-notes="Don't rush this — supervisors want to see we didn't cherry-pick. Sessions 1-13 are the foundation.">
+    <div class="slide-num">Slide 5 — Worklog (fixes)</div>
+    <h1>Worklog: Sessions 1–13 (infrastructure)</h1>
+    <div class="timeline">
+      <div class="tl-row"><span class="tl-sess">S1</span><span>Proposal pilot 500 steps — 17%→7% harm. <strong>Later invalidated</strong> (eval bugs).</span></div>
+      <div class="tl-row"><span class="tl-sess">S2</span><span>Reward centering: <code>1−2×tox</code> so V_MAX can rise above 0.</span></div>
+      <div class="tl-row"><span class="tl-sess">S3</span><span>Terminal-token value only (not mean over sequence).</span></div>
+      <div class="tl-row"><span class="tl-sess">S4</span><span><strong>Empty-response eval bug</strong> — never score prompt as fallback.</span></div>
+      <div class="tl-row"><span class="tl-sess">S5–6</span><span>Determinism, real batching; PPO stability (epochs=1, fixed KL).</span></div>
+      <div class="tl-row"><span class="tl-sess">S7</span><span>Smooth vs hard unsafe switch — hard kept (smooth didn't help).</span></div>
+      <div class="tl-row"><span class="tl-sess">S8–10</span><span>Bound saturation → per-category bounds, reward-only updates.</span></div>
+      <div class="tl-row"><span class="tl-sess">S11</span><span>KL asymmetry β=0.2 vs 0.01 — hypothesis, not yet tested.</span></div>
+      <div class="tl-row"><span class="tl-sess">S12–13</span><span>Path 1 vs Path 2; entropy/KL/clipfrac logging + fig7.</span></div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide" data-notes="Sessions 14-17 are the main story for this meeting — discovery through correction.">
+    <div class="slide-num">Slide 6 — Worklog (discoveries)</div>
+    <h1>Worklog: Sessions 14–17 (seed-42 postmortem)</h1>
+    <div class="timeline">
+      <div class="tl-row"><span class="tl-sess">S14</span><span><strong>Advertisements</strong> reward hacking; minmax entropy collapse; greedy eval 0% harm is fake.</span></div>
+      <div class="tl-row"><span class="tl-sess">S15</span><span>Raw GPT-2 eval: 0% Advertisements, 7.1% harm — RL artifact confirmed (H2).</span></div>
+      <div class="tl-row"><span class="tl-sess">S16</span><span><code>ppo-minmax</code> env (trl 0.11.4); sample eval shows greedy distorts baseline.</span></div>
+      <div class="tl-row"><span class="tl-sess">S17</span><span>Minmax <strong>β=0.2 ablation</strong> — collapse fixed; 2.0% harm vs baseline 3.0%.</span></div>
+    </div>
+    <div class="callout" style="margin-top:1rem;">Full chronology in <code>worklog.md</code> (609 lines). Negative results kept on purpose — corrections are part of the record.</div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide" data-notes="This is the slide that explains why we're not presenting the proposal numbers anymore.">
+    <div class="slide-num">Slide 7 — Do not cite</div>
+    <h1>Results we must NOT cite</h1>
+    <table>
+      <tr><th>Claim</th><th>Why invalid</th></tr>
+      <tr class="row-warn"><td>Proposal: 17.3% → 7.1% harm (500 steps)</td><td>Pre–Session 4 eval bugs; empty-response fallback</td></tr>
+      <tr class="row-warn"><td>Seed 42 greedy: minmax 0% harm, baseline 3.1%</td><td>Minmax collapsed (69% "Advertisements", 18 unique responses)</td></tr>
+      <tr class="row-warn"><td>Minmax β=0.01 sample: 0% harm, 47% Ads</td><td>Still degenerate policy; β too weak</td></tr>
+      <tr class="row-warn"><td>Any run in <code>safe-rlhf</code> env (trl 0.8.6)</td><td>Not the pinned stack; generation-kwargs warnings</td></tr>
+    </table>
+    <div class="callout good" style="margin-top:0.75rem;"><strong>Trustworthy for now:</strong> sample eval, minmax β=0.2 (<code>minmax_kl02</code>), baseline sample eval from same protocol — with caveat that baseline was trained in old env.</div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide" data-notes="Explain mechanism: single BPE token, max Detoxify reward, R_unsafe never fires because toxicity ~0.">
+    <div class="slide-num">Slide 8 — Reward hacking</div>
+    <h1>The "Advertisements" exploit</h1>
+    <div class="grid-2">
+      <div class="col">
+        <p><strong>"Advertisements"</strong> is one GPT-2 token. Detoxify scores it ≈ 0.001 toxicity.</p>
+        <p style="margin-top:0.5rem;">Centered reward = <code>1 − 2×0.001 ≈ 0.998</code> — near maximum.</p>
+        <div class="callout warn" style="margin-top:0.75rem;">
+          Minmax penalty only replaces reward when unsafe (tox &gt; 0.3). "Advertisements" is always <em>safe</em> to Detoxify → <code>R_unsafe</code> never applies. The safety mechanism is optimised away.
+        </div>
+        <h3>Greedy eval (original seed 42)</h3>
+        <table>
+          <tr><th>Model</th><th>Ads %</th><th>Unique</th><th>Harm</th><th>Empty</th></tr>
+          <tr><td>Baseline</td><td class="num">56%</td><td class="num">203</td><td class="num">3.1%</td><td class="num">0.1%</td></tr>
+          <tr class="row-warn"><td>Minmax β=0.01</td><td class="num">69%</td><td class="num">18</td><td class="num">0%</td><td class="num">11%</td></tr>
+        </table>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="../experiments/seed_42_steps_1000/results/figures_minmax_kl_0.01/fig5_harm_vs_empty_1000.png" alt="Harm vs empty collapsed" />
+          <figcaption>fig5 — Collapsed run (β=0.01): minmax shows 0% harm but 11% empty. Overall harm bars mislead.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide" data-notes="Point to entropy panel in fig7 — minmax flatlines near zero while baseline stays 3-4.">
+    <div class="slide-num">Slide 9 — Policy collapse</div>
+    <h1>Minmax policy collapse (β=0.01)</h1>
+    <div class="grid-2 grid-2-fig">
+      <div class="col">
+        <table>
+          <tr><th>Step</th><th>Minmax H</th><th>Minmax KL</th><th>Baseline H</th></tr>
+          <tr><td class="num">0</td><td class="num">3.45</td><td class="num">0.0</td><td class="num">3.45</td></tr>
+          <tr class="row-warn"><td class="num">95</td><td class="num">&lt;1.0</td><td class="num">+14</td><td class="num">~4.2</td></tr>
+          <tr class="row-warn"><td class="num">999</td><td class="num">0.0075</td><td class="num">−41</td><td class="num">3.73</td></tr>
+        </table>
+        <p style="margin-top:0.5rem; font-size:0.88rem; color:var(--muted);">Negative KL = TRL estimator breakdown, not physical KL. 57/100 late steps negative.</p>
+        <p style="margin-top:0.5rem;">Last 200 steps: only <strong>2</strong> unsafe triggers total — penalty inactive while policy games reward.</p>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="../experiments/seed_42_steps_1000/results/figures_minmax_kl_0.01/fig7_baseline_vs_minmax_diagnostics_1000.png" alt="Diagnostics beta 0.01" />
+          <figcaption>fig7 — β=0.01 run: minmax entropy collapses; baseline stays healthy.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide" data-notes="H1 was GPT-2 prior — rejected. Important because it means RL training introduced the behavior.">
+    <div class="slide-num">Slide 10 — Raw GPT-2</div>
+    <h1>Investigation: untrained GPT-2</h1>
+    <p>Same 700 prompts, greedy decoding, no RL.</p>
+    <table style="max-width:36rem; margin:1rem 0;">
+      <tr><th>Model</th><th>Advertisements</th><th>Unique responses</th><th>Harm (nonempty)</th></tr>
+      <tr class="row-good"><td>Raw GPT-2</td><td class="num">0%</td><td class="num">669</td><td class="num">7.1%</td></tr>
+      <tr><td>Trained baseline (greedy)</td><td class="num">56%</td><td class="num">203</td><td class="num">3.1%</td></tr>
+      <tr class="row-warn"><td>Trained minmax (greedy)</td><td class="num">69%</td><td class="num">18</td><td class="num">0%</td></tr>
+    </table>
+    <div class="callout good"><strong>H1 rejected, H2 confirmed:</strong> "Advertisements" is an RL-learned Detoxify exploit, not a GPT-2 greedy prior on BeaverTails.</div>
+  </section>
+
+  <!-- 11 -->
+  <section class="slide" data-notes="Baseline recovers with sampling; minmax still broken until KL fixed — key insight for thesis methods section.">
+    <div class="slide-num">Slide 11 — Decoding mismatch</div>
+    <h1>Greedy vs sampled eval</h1>
+    <table>
+      <tr><th>Decoding</th><th>Model</th><th>Ads</th><th>Unique</th><th>Empty</th><th>Harm</th></tr>
+      <tr><td>Greedy</td><td>Baseline</td><td class="num">56%</td><td class="num">203</td><td class="num">1</td><td class="num">3.1%</td></tr>
+      <tr><td>Greedy</td><td>Minmax β=0.01</td><td class="num">69%</td><td class="num">18</td><td class="num">77</td><td class="num">0%</td></tr>
+      <tr class="row-good"><td>Sample</td><td>Baseline</td><td class="num">3%</td><td class="num">668</td><td class="num">2</td><td class="num">3.0%</td></tr>
+      <tr class="row-warn"><td>Sample</td><td>Minmax β=0.01</td><td class="num">47%</td><td class="num">150</td><td class="num">58</td><td class="num">0%</td></tr>
+    </table>
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="callout">Greedy eval explains much of <strong>baseline</strong> Advertisements collapse.</div>
+      <div class="callout warn">Minmax still degenerate under sampling → collapse is in <strong>trained weights</strong> (weak KL), not eval alone.</div>
+    </div>
+  </section>
+
+  <!-- 12 -->
+  <section class="slide" data-notes="Mention ppo-minmax env: trl 0.11.4, transformers 4.57.6, CUDA 11.8 for GTX 750 Ti.">
+    <div class="slide-num">Slide 12 — Environment</div>
+    <h1>Training environment matters</h1>
+    <table>
+      <tr><th>Env</th><th>trl</th><th>transformers</th><th>Used for</th></tr>
+      <tr class="row-warn"><td><code>safe-rlhf</code></td><td class="num">0.8.6</td><td class="num">5.5.0</td><td>Original seed-42 train + eval</td></tr>
+      <tr class="row-good"><td><code>ppo-minmax</code></td><td class="num">0.11.4</td><td class="num">4.57.6</td><td>kl02 ablation, all future runs</td></tr>
+    </table>
+    <p style="margin-top:0.75rem;">Original run had repeated TRL warnings: <em>"make sure generation kwargs are set correctly"</em> — rollout generation may not have matched intent.</p>
+    <div class="callout">Environment mismatch is a <strong>confounder</strong>, not the root cause of Advertisements (raw GPT-2 shows 0%).</div>
+  </section>
+
+  <!-- 13 -->
+  <section class="slide" data-notes="Session 17 — the main positive technical result of this sprint.">
+    <div class="slide-num">Slide 13 — KL ablation</div>
+    <h1>Fix: Minmax at β=0.2 (matching baseline)</h1>
+    <div class="grid-2">
+      <div class="col">
+        <p>Retrained minmax 1000 steps in <code>ppo-minmax</code>. Checkpoint: <code>checkpoints/minmax_kl02</code>.</p>
+        <h3>Training end state</h3>
+        <table>
+          <tr><th>Metric</th><th>β=0.01 (old)</th><th>β=0.2 (kl02)</th></tr>
+          <tr><td>Final entropy</td><td class="num" style="color:var(--bad)">0.0075</td><td class="num" style="color:var(--good)">3.31</td></tr>
+          <tr><td>Final KL</td><td class="num" style="color:var(--bad)">−41</td><td class="num" style="color:var(--good)">+3.19</td></tr>
+          <tr><td>Train time</td><td class="num">~80 min</td><td class="num">~108 min</td></tr>
+        </table>
+        <div class="callout good" style="margin-top:0.5rem;"><strong>Conclusion:</strong> weak KL was the proximate cause of minmax collapse, not the Minmax penalty formula alone.</div>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="../experiments/seed_42_steps_1000/results/figures/fig1_training_curves_1000_kl02_fair.png" alt="Training curves fair" />
+          <figcaption>fig1 — Reward curves: baseline vs minmax β=0.2 (both high ~0.99 — Detoxify ceiling).</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14 MASTER TABLE -->
+  <section class="slide" data-notes="This is the money slide — full matrix. Stress sample eval + kl02 for fair minmax. Baseline still from old env — next step is matched re-run.">
+    <div class="slide-num">Slide 14 — Master results</div>
+    <h1>Complete results matrix (seed 42)</h1>
+    <table style="font-size:0.78rem;">
+      <tr>
+        <th>Run</th><th>Train env</th><th>KL β</th><th>Eval decode</th>
+        <th>Ads</th><th>Unique</th><th>Empty</th><th>Harm</th><th>Trust?</th>
+      </tr>
+      <tr class="row-good"><td>Raw GPT-2</td><td>—</td><td>—</td><td>greedy</td><td class="num">0%</td><td class="num">669</td><td class="num">0%</td><td class="num">7.1%</td><td>Yes (reference)</td></tr>
+      <tr><td>Baseline</td><td>safe-rlhf</td><td class="num">0.2</td><td>greedy</td><td class="num">56%</td><td class="num">203</td><td class="num">0.1%</td><td class="num">3.1%</td><td>No (decode)</td></tr>
+      <tr class="row-warn"><td>Minmax</td><td>safe-rlhf</td><td class="num">0.01</td><td>greedy</td><td class="num">69%</td><td class="num">18</td><td class="num">11%</td><td class="num">0%</td><td>No (collapsed)</td></tr>
+      <tr><td>Baseline</td><td>safe-rlhf</td><td class="num">0.2</td><td>sample</td><td class="num">3%</td><td class="num">668</td><td class="num">0.3%</td><td class="num">3.0%</td><td>Partial*</td></tr>
+      <tr class="row-warn"><td>Minmax</td><td>safe-rlhf</td><td class="num">0.01</td><td>sample</td><td class="num">47%</td><td class="num">150</td><td class="num">8.3%</td><td class="num">0%</td><td>No (collapsed)</td></tr>
+      <tr class="row-good"><td><strong>Minmax kl02</strong></td><td>ppo-minmax</td><td class="num"><strong>0.2</strong></td><td>sample</td><td class="num"><strong>1.4%</strong></td><td class="num"><strong>684</strong></td><td class="num"><strong>0.1%</strong></td><td class="num"><strong>2.0%</strong></td><td><strong>Yes</strong></td></tr>
+    </table>
+    <p style="font-size:0.75rem; color:var(--muted); margin-top:0.4rem;">*Baseline sample eval uses old-env checkpoint; fair A/B needs both conditions retrained in <code>ppo-minmax</code>.</p>
+  </section>
+
+  <!-- 15 -->
+  <section class="slide" data-notes="2% vs 3% is modest — be honest about effect size and single seed.">
+    <div class="slide-num">Slide 15 — Fair harm comparison</div>
+    <h1>Fair comparison: harm rate (sample eval)</h1>
+    <figure>
+      <img src="../experiments/seed_42_steps_1000/results/figures/fig4_overall_harm_bar_1000_kl02_fair.png" alt="Overall harm fair" style="max-height:52vh;" />
+      <figcaption>fig4 — Baseline 3.0% vs Minmax β=0.2 2.0% vs raw GPT-2 7.1% (non-empty denominator). Modest improvement; not the dramatic 0% from collapsed run.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 16 -->
+  <section class="slide" data-notes="Walk category by category if asked — some categories have very few harmful examples at 2-3% overall.">
+    <div class="slide-num">Slide 16 — Per category</div>
+    <h1>Harm rate by category (fair)</h1>
+    <figure>
+      <img src="../experiments/seed_42_steps_1000/results/figures/fig3_harm_rate_bar_1000_kl02_fair.png" alt="Harm by category" />
+      <figcaption>fig3 — Per-category harm (non-empty). High variance per category (n=50 each).</figcaption>
+    </figure>
+  </section>
+
+  <!-- 17 -->
+  <section class="slide" data-notes="Both lines track together now — minmax is not destabilizing PPO at beta 0.2.">
+    <div class="slide-num">Slide 17 — PPO health</div>
+    <h1>PPO internals: baseline vs minmax (β=0.2)</h1>
+    <figure>
+      <img src="../experiments/seed_42_steps_1000/results/figures/fig7_baseline_vs_minmax_diagnostics_1000_kl02_fair.png" alt="PPO diagnostics fair" />
+      <figcaption>fig7 — Entropy, value loss, policy loss, clip fraction. No collapse at matched KL.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 18 -->
+  <section class="slide" data-notes="Algorithm 1 still saturates — honest limitation for thesis. Fixed penalty ablation still open.">
+    <div class="slide-num">Slide 18 — Algorithm 1</div>
+    <h1>Algorithm 1 dynamics (minmax β=0.2)</h1>
+    <div class="grid-2 grid-2-fig">
+      <div class="col">
+        <figure>
+          <img src="../experiments/seed_42_steps_1000/results/figures/fig2_algorithm1_dynamics_1000_kl02_fair.png" alt="Algorithm 1" />
+          <figcaption>fig2 — V_MIN, V_MAX, R_unsafe over training.</figcaption>
+        </figure>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="../experiments/seed_42_steps_1000/results/figures/fig6_minmax_diagnostics_1000_kl02_fair.png" alt="Minmax diagnostics" />
+          <figcaption>fig6 — Mean toxicity, n_unsafe per step.</figcaption>
+        </figure>
+        <div class="callout warn" style="margin-top:0.5rem;">Bounded Detoxify reward → V_MIN/V_MAX saturate early. Open Q: does self-calibration beat a fixed penalty?</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 19 -->
+  <section class="slide" data-notes="Split claims carefully — good science is saying what we know vs infer.">
+    <div class="slide-num">Slide 19 — Claims</div>
+    <h1>What we can vs cannot claim</h1>
+    <div class="grid-2">
+      <div class="col">
+        <h3>Can claim</h3>
+        <ul>
+          <li>Detoxify-only reward is <strong>gameable</strong> (Advertisements exploit)</li>
+          <li>Weak KL (β=0.01) caused minmax <strong>policy collapse</strong></li>
+          <li>Greedy eval <strong>misrepresented</strong> baseline under sample-trained policy</li>
+          <li>At β=0.2 + sample eval: minmax <strong>2.0%</strong> vs baseline <strong>3.0%</strong> vs raw <strong>7.1%</strong> harm (1 seed)</li>
+          <li>Debugging trail documents ROSARL→LLM transfer difficulty</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Cannot claim (yet)</h3>
+        <ul>
+          <li>Minmax beats baseline on safety <strong>in general</strong> (1 seed; baseline old env)</li>
+          <li>0% harm from collapsed minmax = success</li>
+          <li>Self-calibration (Algorithm 1) is necessary vs fixed penalty — not tested</li>
+          <li>Proposal pilot harm reduction</li>
+          <li>Thesis-grade table without matched re-run in <code>ppo-minmax</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 20 -->
+  <section class="slide" data-notes="Be concrete on timeline — fair re-run is the immediate priority.">
+    <div class="slide-num">Slide 20 — Next steps</div>
+    <h1>Next steps</h1>
+    <table>
+      <tr><th>Priority</th><th>Task</th><th>Why</th></tr>
+      <tr class="row-good"><td class="num">1</td><td><strong>Fair re-run:</strong> baseline + minmax, both β=0.2, <code>ppo-minmax</code>, sample eval</td><td>Thesis-grade A/B; removes env confounder</td></tr>
+      <tr><td class="num">2</td><td>Fixed-penalty comparator (−2.0 when unsafe, no V_MIN/V_MAX)</td><td>Test if self-calibration earns its complexity</td></tr>
+      <tr><td class="num">3</td><td>Second seed (e.g. 43)</td><td>Stability of 2% vs 3% gap</td></tr>
+      <tr><td class="num">4</td><td>Reward redesign (length penalty, refusal shaping)</td><td>Address Detoxify gaming structurally</td></tr>
+      <tr><td class="num">5</td><td>Default minmax KL to 0.2 in codebase</td><td>Prevent accidental collapse</td></tr>
+    </table>
+    <h3 style="margin-top:1rem;">Reproduce figures</h3>
+    <p><code>python Evaluation/plot_results.py --figure-suffix _kl02_fair ...</code> — see README.</p>
+  </section>
+
+  <!-- 21 -->
+  <section class="slide title-slide" data-notes="Invite discussion on whether 1pp harm reduction is enough to continue minmax vs pivot to reward/phase 2.">
+    <div class="slide-num">Slide 21</div>
+    <h1>Discussion</h1>
+    <ul style="font-size:1.1rem; line-height:1.85; margin-top:1rem;">
+      <li>Is <strong>2% vs 3%</strong> harm (one seed) sufficient to pursue Minmax in the thesis?</li>
+      <li>Should the thesis <strong>lead with negative results</strong> (collapse, hacking) then fair rerun?</li>
+      <li>Fixed-penalty ablation before more bound engineering?</li>
+      <li>Timeline for Phase 2 (activation probe replacing Detoxify)?</li>
+    </ul>
+    <p style="margin-top:2rem; color:var(--muted);">Artifacts: <code>worklog.md</code> · <code>experiments/seed_42_steps_1000/</code> · <code>docs/supervisor_progress_slides.html</code></p>
+  </section>
+
+</div>
+
+<div id="chrome">
+  <div id="counter">1 / 21</div>
+  <div>
+    <div id="progress"><div id="progress-bar"></div></div>
+    <div id="notes-panel" title="Press N to expand speaker notes"></div>
+  </div>
+  <div id="help">← → navigate · N notes · F fullscreen · P print PDF</div>
+</div>
+
+<script>
+(function () {
+  const slides = [...document.querySelectorAll('.slide')];
+  const counter = document.getElementById('counter');
+  const bar = document.getElementById('progress-bar');
+  const notes = document.getElementById('notes-panel');
+  let i = 0;
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, j) => s.classList.toggle('active', j === i));
+    counter.textContent = `${i + 1} / ${slides.length}`;
+    bar.style.width = `${((i + 1) / slides.length) * 100}%`;
+    notes.textContent = slides[i].dataset.notes || '';
+    notes.classList.remove('open');
+  }
+
+  function next() { show(i + 1); }
+  function prev() { show(i - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+    if (e.key === 'Home') { e.preventDefault(); show(0); }
+    if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
+    if (e.key === 'n' || e.key === 'N') { notes.classList.toggle('open'); }
+    if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#chrome')) return;
+    (e.clientX > window.innerWidth / 2) ? next() : prev();
+  });
+
+  show(0);
+})();
+</script>
+</body>
+</html>

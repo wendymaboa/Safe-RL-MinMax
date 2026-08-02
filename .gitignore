@@ -1,0 +1,72 @@
+﻿# Cursor / IDE
+.cursor/
+.vscode/
+.idea/
+*.code-workspace
+.history/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Experiment artifacts / model weights (too large for git)
+ppo_minmax_experiment/experiments/
+ppo_minmax_experiment/models/
+ppo_minmax_experiment/results/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# ML / logging
+wandb/
+runs/
+outputs/
+output/
+lightning_logs/
+*.h5
+*.hdf5
+
+# LaTeX build products
+*.aux
+*.bbl
+*.blg
+*.lof
+*.log
+*.lot
+*.out
+*.synctex.gz
+*.toc
+*.fls
+*.fdb_latexmk
+*.nav
+*.snm
+*.vrb
+
+# Misc
+*.tmp
+*.temp
+*.swp
+*~
