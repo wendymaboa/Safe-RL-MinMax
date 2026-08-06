@@ -551,19 +551,36 @@ that minmax "works" or "fails" as a safety mechanism. **Next:** fair A/B with bo
 
 ---
 
-## Session 18 — Fair baseline retrain in `ppo-minmax` (in progress)
+## Session 18 — Fair baseline retrain in `ppo-minmax` (closed)
 
 **Date:** 2026-08-03
 
-**Did:** Started 1000-step baseline (β=0.2) in the pinned `ppo-minmax` env so it matches
-`minmax_kl02` (same trl/transformers stack). Saving to separate paths so the old
-`safe-rlhf` baseline is preserved:
+**Did:** Retrained baseline (β=0.2, 1000 steps, seed 42) in `ppo-minmax` (trl 0.11.4 /
+transformers 4.57.6) to match `minmax_kl02`. Did not overwrite the old `safe-rlhf`
+baseline:
 
 - Log: `logs/baseline_ppominmax_training.csv`
 - Checkpoint: `checkpoints/baseline_ppominmax`
+- Train time: 7537s (~126 min). Final entropy **3.45**, KL **+4.73** (healthy).
+- Sample eval (`--do-sample --seed 42`, tag `baseline_ppominmax_sample`).
 
-**Next after train:** sample eval (`--do-sample --seed 42`, tag `baseline_ppominmax_sample`)
-and head-to-head vs `eval_1000_kl02_sample` / `minmax_kl02`.
+**Found (fair A/B, both in `ppo-minmax`, β=0.2, sample eval):**
+
+| Run | Ads | Unique | Empty | Harm |
+|---|---|---|---|---|
+| Raw GPT-2 | 0% | 669 | 0 | 7.1% |
+| **baseline_ppominmax** | **0.3%** | **674** | **0** | **2.3%** |
+| **minmax_kl02** | **1.4%** | **684** | **1** | **2.0%** |
+| Old baseline (safe-rlhf, sample) | 3.0% | 668 | 2 | 3.0% |
+
+**Concluded:** Under a matched environment and KL, Minmax and baseline are essentially
+tied (2.0% vs 2.3%, one seed). Both beat raw GPT-2; neither collapses; Advertisements
+hacking is gone. The Phase-1 GPT-2 + Detoxify pilot is **wrapped**: the honest claim is
+that Minmax is *viable* at matched KL, not that it clearly outperforms PPO+KL. Further
+gains need a better reward / detector (or fixed-penalty ablation), not more β=0.01 runs.
+
+**Parked (not blocking wrap-up):** fixed-penalty comparator; category vs global bounds;
+reward redesign; second seed; Phase 2 probe.
 
 ---
 
@@ -604,9 +621,12 @@ and head-to-head vs `eval_1000_kl02_sample` / `minmax_kl02`.
       **Done in 6495s. Final entropy 3.31, KL +3.19 (vs β=0.01: 0.0075, −41).**
 - [x] Eval `minmax_kl02` with `--do-sample --seed 42` (tag `kl02_sample`).
       **Result: 1.4% Advertisements, 684 unique, 2.0% harm — collapse fixed.**
+- [x] Fair baseline retrain in `ppo-minmax` (Session 18).
+      Log/ckpt: `baseline_ppominmax_*`. Sample eval: **0.3% Ads, 674 unique, 2.3% harm.**
+      Fair A/B closed: minmax 2.0% vs baseline 2.3% (one seed).
 - [ ] Fixed-magnitude-penalty comparator (always −2.0 when unsafe, no V_MIN/V_MAX at
       all) — cheap to add, tells you whether self-calibration is earning its keep over
-      a simple fixed penalty.
+      a simple fixed penalty. **Parked.**
 - [ ] `bound_scope="category"` vs `"global"` — not yet compared head to head.
 - [ ] (Future work, not current scope) Advantage-weighted alternative to global bounds
       tracking — sketched conversationally, not implemented. Would test a different
