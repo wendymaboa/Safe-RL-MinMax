@@ -198,8 +198,9 @@ Checkpoint: `checkpoints/minmax_kl02` · ~108 min train
 | Baseline | safe-rlhf | 0.2 | sample | 3% | 668 | 3.0% | Partial* |
 | Minmax | safe-rlhf | 0.01 | sample | 47% | 150 | 0% | No |
 | **Minmax kl02** | ppo-minmax | **0.2** | sample | **1.4%** | **684** | **2.0%** | **Yes** |
+| **Baseline ppominmax** | ppo-minmax | **0.2** | sample | **0.3%** | **674** | **2.3%** | **Yes** |
 
-*Fair A/B needs both conditions retrained in `ppo-minmax`.*
+*Fair A/B complete (Session 18): both conditions in `ppo-minmax`, β=0.2, sample eval.*
 
 ---
 
@@ -207,7 +208,8 @@ Checkpoint: `checkpoints/minmax_kl02` · ~108 min train
 
 ![width:900px](../experiments/seed_42_steps_1000/results/figures/fig4_overall_harm_bar_1000_kl02_fair.png)
 
-Minmax **2.0%** vs baseline **3.0%** vs raw **7.1%** — modest, honest effect size (1 seed).
+**Fair A/B:** Minmax **2.0%** vs baseline **2.3%** vs raw **7.1%** — essentially tied (1 seed).
+(Figure may still show the older 3.0% baseline until regenerated with `baseline_ppominmax`.)
 
 ---
 
@@ -242,7 +244,7 @@ Entropy ~3–4 for both — minmax does not destabilise PPO at matched KL.
 - Detoxify reward is gameable (Advertisements)
 - Weak KL caused minmax collapse
 - Greedy eval misrepresented baseline
-- At β=0.2 + sample: 2.0% vs 3.0% vs 7.1% harm (1 seed)
+- Fair A/B (`ppo-minmax`, β=0.2, sample): **2.0% vs 2.3%** vs 7.1% raw (1 seed) — tied
 
 **Cannot claim (yet)**
 - Minmax beats baseline in general
@@ -252,15 +254,15 @@ Entropy ~3–4 for both — minmax does not destabilise PPO at matched KL.
 
 ---
 
-# Next steps
+# Next steps (parked — Phase 1 wrapped)
 
-| P | Task |
-|---|------|
-| **1** | **Fair re-run:** baseline + minmax, β=0.2, `ppo-minmax`, sample eval |
-| 2 | Fixed-penalty comparator |
-| 3 | Second seed (43) |
-| 4 | Reward redesign (length penalty, refusal shaping) |
-| 5 | Default minmax KL → 0.2 in code |
+| P | Task | Status |
+|---|------|--------|
+| 1 | Fair re-run: baseline + minmax, β=0.2, `ppo-minmax` | **Done (Session 18)** |
+| 2 | Fixed-penalty comparator | Parked |
+| 3 | Second seed (43) | Parked |
+| 4 | Reward redesign / better detector | Later |
+| 5 | Default minmax KL → 0.2 in code | Optional cleanup |
 
 ```bash
 conda activate ppo-minmax
