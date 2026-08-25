@@ -30,10 +30,7 @@ import torch
 import transformers
 from torch.utils.data import ConcatDataset, Dataset, Subset, default_collate
 from tqdm import tqdm
-try:
-    from transformers.tokenization_utils_base import PaddingStrategy, TruncationStrategy
-except ImportError:
-    from transformers.tokenization_utils import PaddingStrategy, TruncationStrategy
+from transformers.tokenization_utils import PaddingStrategy, TruncationStrategy
 
 from safe_rlhf.utils import is_main_process
 

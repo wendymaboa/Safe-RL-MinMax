@@ -15,7 +15,6 @@
 """Raw datasets."""
 
 from safe_rlhf.datasets.raw.alpaca import AlpacaDataset
-from safe_rlhf.datasets.raw.beavertails import BeaverTailsDataset
 from safe_rlhf.datasets.raw.firefly import FireflyDataset
 from safe_rlhf.datasets.raw.hh_rlhf import (
     HhRLHFDialogueDataset,
@@ -35,7 +34,6 @@ from safe_rlhf.datasets.raw.safe_rlhf import (
 
 __all__ = [
     'AlpacaDataset',
-    'BeaverTailsDataset',
     'FireflyDataset',
     'HhRLHFDialogueDataset',
     'HhRLHFHarmlessDialogueDataset',

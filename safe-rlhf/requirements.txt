@@ -1,7 +1,7 @@
 torch >= 1.13
-transformers>=4.37.2,<=4.46.3
+transformers >= 4.37
 datasets
-tokenizers >= 0.13.3, < 0.22.0
+tokenizers >= 0.13.3
 accelerate
 deepspeed
 numpy
@@ -13,6 +13,3 @@ optree
 matplotlib
 tqdm
 rich
-detoxify
-trl == 0.11.4
-peft
