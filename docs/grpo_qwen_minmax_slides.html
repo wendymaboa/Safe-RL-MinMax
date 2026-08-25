@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Safe-RLHF → Qwen + LoRA + GRPO — Familiarization Plan</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0c0f14; --fg: #eef2f6; --muted: #8b9aab; --accent: #5eb3ff;
+      --accent-dim: #2a4a66; --card: #151b24; --border: #2b3644;
+      --warn: #f0a060; --good: #6fcf97; --bad: #e07070;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+      font-family: "Segoe UI", system-ui, sans-serif; }
+
+    #deck { height: 100vh; width: 100vw; position: relative; }
+    .slide {
+      position: absolute; inset: 0; padding: 2.2rem 3.2rem 5.5rem;
+      display: none; flex-direction: column; opacity: 0; transition: opacity 0.2s;
+      overflow: auto;
+    }
+    .slide.active { display: flex; opacity: 1; }
+    .slide.title-slide { justify-content: center; overflow: hidden; }
+
+    .slide-num { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.65rem; }
+    h1 { font-size: clamp(1.4rem, 3vw, 2.15rem); font-weight: 650; line-height: 1.15; margin-bottom: 0.45rem; }
+    h2 { font-size: clamp(0.92rem, 1.6vw, 1.15rem); color: var(--accent); font-weight: 500; margin-bottom: 0.85rem; }
+    h3 { font-size: 0.88rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0.75rem 0 0.3rem; }
+    p, li { font-size: clamp(0.82rem, 1.2vw, 0.96rem); line-height: 1.5; }
+    ul, ol { padding-left: 1.15rem; margin: 0.3rem 0; }
+    li { margin: 0.16rem 0; }
+    code { font-size: 0.86em; background: var(--card); padding: 0.1em 0.35em; border: 1px solid var(--border); }
+    .muted { color: var(--muted); }
+    .tags { margin-bottom: 0.75rem; }
+    .tag { display: inline-block; font-size: 0.68rem; padding: 0.2rem 0.55rem; border: 1px solid var(--border);
+      color: var(--muted); margin-right: 0.35rem; background: var(--card); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.35rem; align-items: start; }
+    table { width: 100%; border-collapse: collapse; font-size: clamp(0.68rem, 1.02vw, 0.84rem); margin: 0.4rem 0; }
+    th, td { border: 1px solid var(--border); padding: 0.3rem 0.48rem; text-align: left; vertical-align: top; }
+    th { background: var(--card); color: var(--accent); font-weight: 600; }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    .callout { border-left: 3px solid var(--accent); padding: 0.5rem 0.8rem; background: var(--card); margin: 0.45rem 0; font-size: 0.88rem; }
+    .callout.warn { border-color: var(--warn); }
+    .callout.good { border-color: var(--good); }
+
+    .mermaid { background: #111822; border: 1px solid var(--border); padding: 0.65rem; border-radius: 4px; margin: 0.45rem 0; }
+    .mermaid svg { max-width: 100%; height: auto; }
+
+    /* Plan todos */
+    .todo-list { list-style: none; padding: 0; margin: 0.5rem 0; }
+    .todo-list li {
+      display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.45rem 0;
+      border-bottom: 1px solid var(--border); font-size: 0.88rem; cursor: pointer;
+    }
+    .todo-list li:hover { color: var(--accent); }
+    .todo-box {
+      width: 1rem; height: 1rem; border: 2px solid var(--border); flex-shrink: 0; margin-top: 0.15rem;
+      display: flex; align-items: center; justify-content: center; font-size: 0.7rem;
+    }
+    .todo-list li.done .todo-box { border-color: var(--good); color: var(--good); }
+    .todo-list li.done .todo-box::after { content: "✓"; }
+    .todo-list li.done .todo-text { text-decoration: line-through; color: var(--muted); }
+
+    /* Interactive pipe */
+    .pipe { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.6rem 0; }
+    .pipe-node {
+      background: var(--card); border: 1px solid var(--border); padding: 0.5rem 0.75rem;
+      cursor: pointer; font-size: 0.8rem; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .pipe-node:hover { border-color: var(--accent); }
+    .pipe-node.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); background: #1a2838; }
+    .pipe-node.rm { border-color: var(--good); }
+    .pipe-node.unsafe { border-color: var(--bad); }
+    .pipe-arrow { color: var(--muted); font-size: 1rem; }
+
+    .detail-panel { background: var(--card); border: 1px solid var(--border); padding: 0.8rem 1rem; min-height: 5rem; font-size: 0.88rem; }
+    .detail-panel h4 { color: var(--accent); font-size: 0.92rem; margin-bottom: 0.35rem; }
+
+    /* RM preference cards */
+    .rm-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; margin: 0.6rem 0; }
+    .rm-card {
+      background: var(--card); border: 1px solid var(--border); padding: 0.65rem 0.75rem;
+      cursor: pointer; font-size: 0.78rem; transition: border-color 0.15s;
+    }
+    .rm-card:hover, .rm-card.active { border-color: var(--accent); }
+    .rm-card .rank { color: var(--accent); font-weight: 650; font-size: 0.85rem; }
+
+    /* Familiarization gate */
+    .gate-list { list-style: none; padding: 0; }
+    .gate-list li {
+      display: flex; gap: 0.55rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border);
+      font-size: 0.9rem; cursor: pointer;
+    }
+    .gate-list li:hover { color: var(--accent); }
+    .gate-num { color: var(--accent); font-weight: 650; min-width: 1.2rem; }
+
+    /* Example stepper */
+    .stepper { display: flex; gap: 0.45rem; align-items: center; margin: 0.5rem 0; flex-wrap: wrap; }
+    .btn { background: var(--card); border: 1px solid var(--border); color: var(--fg); padding: 0.35rem 0.75rem; cursor: pointer; font-size: 0.8rem; }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.primary { background: var(--accent-dim); border-color: var(--accent); }
+    .ex-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45rem; margin: 0.5rem 0; }
+    .ex-card { background: var(--card); border: 1px solid var(--border); padding: 0.5rem; font-size: 0.72rem; min-height: 5.5rem; }
+    .ex-card.bad { border-color: var(--bad); }
+    .ex-card.good { border-color: var(--good); }
+    .ex-card .sc { font-size: 1rem; font-weight: 650; margin-top: 0.3rem; }
+
+    #chrome { position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+      background: rgba(12,15,20,0.94); border-top: 1px solid var(--border);
+      padding: 0.55rem 1.25rem; display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center; }
+    #progress { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    #progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+    #counter { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+    #notes-panel { font-size: 0.78rem; color: var(--muted); line-height: 1.4; max-height: 3.2rem; overflow: hidden; }
+    #notes-panel.open { max-height: 8rem; overflow-y: auto; color: #b8c5d0; }
+    #help { font-size: 0.68rem; color: var(--muted); text-align: right; }
+
+    @media (max-width: 900px) {
+      .grid-2, .rm-cards, .ex-grid { grid-template-columns: 1fr; }
+      .slide { padding: 1.4rem 1.1rem 5.5rem; }
+    }
+    @media print {
+      html, body { overflow: visible; height: auto; }
+      .slide { position: relative; display: flex !important; opacity: 1 !important; page-break-after: always; min-height: 100vh; }
+      #chrome { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div id="deck">
+
+  <!-- § Title — mirrors plan frontmatter -->
+  <section class="slide title-slide active" data-notes="Template: safe-rlhf_qwen_grpo plan. Goal: familiarize before implementation — not coding GRPO+Minmax yet.">
+    <div class="tags"><span class="tag">Plan</span><span class="tag">Familiarization</span><span class="tag">Aug 2026</span></div>
+    <h1>Familiarize: Safe RLHF → Qwen 1–3B + LoRA + GRPO + reward model</h1>
+    <h2>Official Safe RLHF (LLaMA/Alpaca/Beaver-7B) → thesis adaptation with Qwen, LoRA, frozen RM</h2>
+    <p class="muted" style="margin-top:1.1rem; max-width:44rem;">
+      Source template: <code>safe-rlhf_qwen_grpo_f12a2a3d.plan.md</code><br />
+      Supplement: <code>GRPO vs PPO notes markdown.md</code>
+    </p>
+  </section>
+
+  <!-- § Plan todos -->
+  <section class="slide" data-notes="Click todos to mark done (saved in browser localStorage). These match the plan YAML todos.">
+    <div class="slide-num">Plan todos — click to toggle</div>
+    <h1>Familiarization checklist (from plan)</h1>
+    <ul class="todo-list" id="plan-todos">
+      <li data-id="read-saferlhf"><span class="todo-box"></span><span class="todo-text"><strong>read-saferlhf</strong> — Read Safe RLHF README + ppo vs ppo_lag; note LLaMA/Alpaca/Beaver-7B + RM/CM pipeline</span></li>
+      <li data-id="grpo-notes"><span class="todo-box"></span><span class="todo-text"><strong>grpo-notes</strong> — Write PPO vs PPO-Lag vs GRPO comparison (RM, cost, critic, KL)</span></li>
+      <li data-id="rm-choice"><span class="todo-box"></span><span class="todo-text"><strong>rm-choice</strong> — Pick frozen RM checkpoint for Qwen 1–3B on 1× GPU (not Detoxify)</span></li>
+      <li data-id="qwen-lora-choice"><span class="todo-box"></span><span class="todo-text"><strong>qwen-lora-choice</strong> — Lock Qwen2.5 1–3B (start 1.5B) + LoRA + TRL/PEFT</span></li>
+      <li data-id="familiarization-gate"><span class="todo-box"></span><span class="todo-text"><strong>familiarization-gate</strong> — Self-check all 6 gate questions before implementation plan</span></li>
+    </ul>
+    <div class="callout">After all todos + gate: separate <strong>implementation</strong> plan (env, GRPO+RM smoke, then Minmax wrapper).</div>
+  </section>
+
+  <!-- § What official Safe RLHF used -->
+  <section class="slide" data-notes="PKU stack is NOT GPT-2, NOT Qwen actor. 7B full FT on 8× A800.">
+    <div class="slide-num">§ What official Safe RLHF actually used</div>
+    <h1>Official Safe RLHF (PKU)</h1>
+    <p class="muted" style="margin-bottom:0.4rem;">PKU Safe RLHF in <code>safe-rlhf/</code> is <strong>not</strong> GPT-2 and <strong>not</strong> Qwen.</p>
+    <div class="mermaid">
+flowchart LR
+  llama["LLaMA-7B"] --> sft["SFT → Alpaca-7B"]
+  sft --> rm["Reward model 7B"]
+  sft --> cm["Cost model 7B"]
+  sft --> ppo["PPO-Lag / PPO / DPO"]
+  rm --> ppo
+  cm --> ppo
+  ppo --> beaver["Beaver-7B"]
+    </div>
+    <div class="pipe" id="saferlhf-pipe">
+      <div class="pipe-node active" data-key="llama">LLaMA-7B</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node" data-key="sft">Alpaca-7B</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node rm" data-key="rm">RM 7B</div><span class="pipe-arrow">+</span>
+      <div class="pipe-node unsafe" data-key="cm">CM 7B</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node" data-key="beaver">Beaver-7B</div>
+    </div>
+    <div class="detail-panel" id="saferlhf-detail"><h4>LLaMA-7B</h4><p>Base: <code>huggyllama/llama-7b</code> · <code>safe-rlhf/scripts/sft-deepspeed.sh</code></p></div>
+  </section>
+
+  <!-- § Safe RLHF table + not included -->
+  <section class="slide" data-notes="Walk the table. Emphasize: thesis adaptation, not Beaver replay.">
+    <div class="slide-num">§ Safe RLHF — models &amp; gaps</div>
+    <h1>Models, scripts, and what is missing</h1>
+    <table>
+      <tr><th>Stage</th><th>Model</th><th>Where set</th></tr>
+      <tr><td>Base</td><td><code>huggyllama/llama-7b</code></td><td><code>safe-rlhf/scripts/sft-deepspeed.sh</code></td></tr>
+      <tr><td>Actor after SFT</td><td><code>PKU-Alignment/alpaca-7b-reproduced</code></td><td><code>ppo-lag.sh</code>, <code>ppo.sh</code></td></tr>
+      <tr><td>Reward / cost</td><td>Beaver <code>*-reward</code> / <code>*-cost</code> (7B)</td><td><code>--reward_model_name_or_path</code></td></tr>
+      <tr><td>Released policy</td><td><code>PKU-Alignment/beaver-7b-v1.0</code></td><td><code>arena-evaluation.sh</code></td></tr>
+      <tr><td>Compute</td><td>8× A800 80GB, full FT + DeepSpeed</td><td><code>safe-rlhf/README.md</code></td></tr>
+    </table>
+    <div class="grid-2" style="margin-top:0.65rem;">
+      <div>
+        <h3>Algorithms shipped</h3>
+        <p>PPO · PPO-Lagrange · PPO reward-shaping · DPO</p>
+      </div>
+      <div>
+        <h3>Not in Safe RLHF</h3>
+        <ul>
+          <li>LoRA (future plan only)</li>
+          <li>GRPO</li>
+          <li>Qwen as actor (score-head adapter only)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout good">Your next stack = <strong>thesis adaptation</strong>: lighter actor, LoRA, GRPO, still a <strong>learned RM</strong> (unlike Phase 1 Detoxify).</div>
+  </section>
+
+  <!-- § Locked defaults -->
+  <section class="slide" data-notes="This is the locked defaults table from the plan.">
+    <div class="slide-num">§ Locked experiment defaults</div>
+    <h1>Locked experiment defaults</h1>
+    <table>
+      <tr><th>Piece</th><th>Choice</th></tr>
+      <tr><td>Actor</td><td><strong>Qwen2.5 in 1–3B</strong> — start <code>Qwen2.5-1.5B-Instruct</code>, scale to <strong>3B</strong> on <code>biggpu</code></td></tr>
+      <tr><td>Fine-tune</td><td><strong>LoRA</strong> (PEFT; r≈16–32) via <strong>TRL</strong>, not PKU DeepSpeed full FT</td></tr>
+      <tr><td>Training reward</td><td><strong>Frozen learned RM</strong> — <em>not</em> Detoxify</td></tr>
+      <tr><td>Algo path</td><td>Familiarize → TRL GRPO smoke with RM → later GRPO+Minmax</td></tr>
+      <tr><td>Baseline</td><td>Standard GRPO vs GRPO+Minmax</td></tr>
+      <tr><td>Eval</td><td>BeaverTails-Evaluation; Detoxify optional as <strong>metric only</strong></td></tr>
+      <tr><td>Codebase</td><td>New TRL experiment (pattern of <code>ppo_minmax_experiment/</code>); PKU = reference</td></tr>
+    </table>
+  </section>
+
+  <!-- § Target architecture (plan mermaid + interactive) -->
+  <section class="slide" data-notes="Plan architecture diagram. Click nodes. Minmax is optional later per plan.">
+    <div class="slide-num">§ Target architecture</div>
+    <h1>Target stack — click each stage</h1>
+    <div class="mermaid">
+flowchart TB
+  prompts["BeaverTails prompts"] --> qwen["Qwen 1to3B + LoRA"]
+  qwen --> gens["G completions GRPO group"]
+  gens --> rm["Frozen reward model"]
+  rm --> scores["scalar rewards"]
+  scores --> grpo["GRPO update"]
+  scores --> minmax["Optional later: Minmax if unsafe"]
+    </div>
+    <div class="pipe" id="arch-pipe">
+      <div class="pipe-node active" data-key="prompts">Prompts</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node" data-key="qwen">Qwen+LoRA</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node" data-key="gens">G completions</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node rm" data-key="rm">Frozen RM</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node" data-key="scores">Scalar r</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node unsafe" data-key="minmax">Minmax?</div><span class="pipe-arrow">→</span>
+      <div class="pipe-node" data-key="grpo">GRPO</div>
+    </div>
+    <div class="detail-panel" id="arch-detail"><h4>BeaverTails prompts</h4><p>Training/eval data. One prompt → G completions (GRPO group).</p></div>
+  </section>
+
+  <!-- § Reward model section -->
+  <section class="slide" data-notes="Why RM replaces Detoxify. Click RM options for VRAM notes.">
+    <div class="slide-num">§ Reward model (replaces Detoxify)</div>
+    <h1>Reward model — training signal</h1>
+    <div class="callout warn"><strong>Why:</strong> Phase 1 Detoxify was gameable (“Advertisements”). RM scores preference/quality — closer to Safe RLHF, harder to hack with one benign token.</div>
+    <h3>Familiarization deliverable — pick one (click)</h3>
+    <div class="rm-cards" id="rm-cards">
+      <div class="rm-card active" data-rm="1">
+        <div class="rank">1. PKU Beaver reward</div>
+        <p><code>beaver-7b-v*-reward</code></p>
+        <p class="muted">Literature match · 7B · likely offload / 2-pass scoring</p>
+      </div>
+      <div class="rm-card" data-rm="2">
+        <div class="rank">2. Smaller open RM</div>
+        <p>≤3B on BeaverTails prefs</p>
+        <p class="muted"><strong>Preferred</strong> for 1× GPU with LoRA actor</p>
+      </div>
+      <div class="rm-card" data-rm="3">
+        <div class="rank">3. Train Qwen RM</div>
+        <p>On BeaverTails preferences</p>
+        <p class="muted">Only if (1)–(2) don’t fit · after GRPO smoke</p>
+      </div>
+    </div>
+    <div class="detail-panel" id="rm-detail"><h4>Option 1 — PKU Beaver reward</h4><p>Matches Safe RLHF papers. Heavy — check if 1.5B LoRA actor + 7B RM fits on <code>biggpu</code>.</p></div>
+    <ul style="margin-top:0.65rem;">
+      <li><strong>Detoxify:</strong> drop as training reward/unsafe detector · optional eval-only metric</li>
+      <li><strong>Minmax unsafe gate (later):</strong> RM threshold or cost head — <em>not</em> Detoxify tox&gt;0.3</li>
+    </ul>
+  </section>
+
+  <!-- § Step 1 -->
+  <section class="slide" data-notes="Plan Step 1: Safe RLHF mental model. Half to one day.">
+    <div class="slide-num">§ Familiarization Step 1</div>
+    <h1>Step 1 — Mental model of Safe RLHF</h1>
+    <p class="muted">½–1 day</p>
+    <ol style="line-height:1.75; margin-top:0.5rem;">
+      <li>Read <code>safe-rlhf/README.md</code> pipeline: SFT → RM → CM → PPO-Lag</li>
+      <li>Skim <code>algorithms/ppo_lag/</code> vs <code>algorithms/ppo/</code></li>
+      <li>Short note: what Beaver’s <strong>RM + CM</strong> do that Phase 1 replaced with Detoxify — and that you are bringing the <strong>RM</strong> back while still avoiding full Lagrange/CM if Minmax works</li>
+    </ol>
+    <table style="margin-top:0.85rem;">
+      <tr><th></th><th>Safe RLHF</th><th>Phase 1</th><th>Next stack</th></tr>
+      <tr><td>Reward</td><td>Learned RM</td><td>Detoxify</td><td><strong>Learned RM</strong></td></tr>
+      <tr><td>Safety constraint</td><td>Cost + Lagrange</td><td>Minmax + Detoxify gate</td><td><strong>Minmax + RM gate</strong></td></tr>
+    </table>
+  </section>
+
+  <!-- § Step 2 — GRPO (from notes, fits plan deliverable) -->
+  <section class="slide" data-notes="Plan Step 2 deliverable: PPO vs PPO-Lag vs GRPO table. Supplement from GRPO notes.">
+    <div class="slide-num">§ Familiarization Step 2</div>
+    <h1>Step 2 — GRPO literacy</h1>
+    <p class="muted">½ day · Deliverable: one-page <strong>PPO vs PPO-Lag vs GRPO</strong></p>
+    <table>
+      <tr><th></th><th>PPO</th><th>PPO-Lag (Safe RLHF)</th><th>GRPO</th></tr>
+      <tr><td>RM?</td><td>Yes</td><td>Yes</td><td>Yes (your plan)</td></tr>
+      <tr><td>Cost model?</td><td>No</td><td><strong>Yes</strong></td><td>No (Minmax instead)</td></tr>
+      <tr><td>Critic V?</td><td><strong>Yes</strong></td><td>Yes</td><td><strong>No</strong></td></tr>
+      <tr><td>Baseline</td><td>Learned V<sub>φ</sub></td><td>+ Lagrange λ</td><td>Group mean/std of r</td></tr>
+      <tr><td>KL</td><td>Clip + KL</td><td>Clip + KL</td><td>Clip + β·KL(π‖π<sub>ref</sub>)</td></tr>
+    </table>
+    <ul style="margin-top:0.65rem;">
+      <li>Group completions; <strong>no value/critic head</strong></li>
+      <li>Within-group normalized advantages: A = (R − mean(r<sub>g</sub>)) / std(r<sub>g</sub>)</li>
+      <li>Scalar RM score plugs in as group reward (same slot Detoxify used, better signal)</li>
+    </ul>
+  </section>
+
+  <!-- § Step 3 -->
+  <section class="slide" data-notes="Plan Step 3: Qwen IDs, LoRA, RM pick, Colab vs biggpu.">
+    <div class="slide-num">§ Familiarization Step 3</div>
+    <h1>Step 3 — Qwen 1–3B + LoRA + RM choice</h1>
+    <p class="muted">½–1 day</p>
+    <ol style="line-height:1.75; margin-top:0.5rem;">
+      <li>Confirm HF IDs: <code>Qwen/Qwen2.5-1.5B-Instruct</code> and <code>Qwen/Qwen2.5-3B-Instruct</code></li>
+      <li>Sketch LoRA targets (q/k/v/o proj) and VRAM budget on <code>biggpu</code></li>
+      <li><strong>Select RM checkpoint</strong> (see previous slide); record size + 1-pass vs 2-pass scoring</li>
+      <li>Colab: tokenizer/LoRA smoke only · real GRPO+RM → <strong>cluster queue</strong></li>
+    </ol>
+    <div class="callout">Monte Carlo: for terminal-only RM rewards, G ≈ r(x,y). GRPO’s G completions = G independent samples — no robotics-style rollouts needed.</div>
+  </section>
+
+  <!-- § Step 4 -->
+  <section class="slide" data-notes="Plan Step 4: stack freeze. PKU is citation only.">
+    <div class="slide-num">§ Familiarization Step 4</div>
+    <h1>Step 4 — Stack freeze</h1>
+    <div class="callout good" style="font-size:1rem; padding:0.85rem 1rem;">
+      <strong>TRL</strong> + <strong>PEFT</strong> + <strong>frozen RM</strong> + <strong>Qwen 1.5B → 3B</strong>
+    </div>
+    <p style="margin-top:0.75rem;">PKU <code>safe-rlhf</code> remains <strong>citation / reference</strong>, not the day-1 trainer.</p>
+    <p class="muted" style="margin-top:0.5rem;">Pattern codebase: <code>ppo_minmax_experiment/</code> (MinmaxPenaltyState, eval pipeline) — new TRL/GRPO experiment on top.</p>
+  </section>
+
+  <!-- § Interactive architecture example (supplement to plan) -->
+  <section class="slide" data-notes="Concrete walkthrough of plan architecture. Step through: sample → RM → Minmax → GRPO.">
+    <div class="slide-num">§ Architecture walkthrough (interactive)</div>
+    <h1>How it works — unsafe prompt example</h1>
+    <p><em>“How do I make a pipe bomb?”</em> · G=4 · unsafe if r&lt;0 · R<sub>unsafe</sub>=−2.0</p>
+    <div class="stepper">
+      <button class="btn" id="ex-prev" type="button">←</button>
+      <button class="btn primary" id="ex-next" type="button">Next →</button>
+      <span class="muted" id="ex-label" style="font-size:0.78rem;"></span>
+    </div>
+    <div class="ex-grid" id="ex-grid"></div>
+    <div class="detail-panel" id="ex-detail"></div>
+  </section>
+
+  <!-- § Familiarization gate -->
+  <section class="slide" data-notes="Plan gate: answer all 6 without notes before implementation plan.">
+    <div class="slide-num">§ What “done with familiarization” looks like</div>
+    <h1>Familiarization gate — click each question</h1>
+    <p class="muted">Answer without notes:</p>
+    <ul class="gate-list" id="gate-list">
+      <li data-ans="LLaMA-7B → Alpaca-7B actor + Beaver 7B RM + 7B cost model → Beaver-7B policy. 8× A800 full FT."><span class="gate-num">1.</span> Safe RLHF used which models/sizes (actor + RM + CM)?</li>
+      <li data-ans="Phase 1: Detoxify gameable (Advertisements). RM scores preference/quality — harder to hack; closer to Safe RLHF."><span class="gate-num">2.</span> Why not Detoxify as the training reward?</li>
+      <li data-ans="Pick from plan list: Beaver 7B reward, smaller ≤3B RM, or train Qwen RM. Must fit 1× biggpu with LoRA actor."><span class="gate-num">3.</span> Which RM checkpoint — and why (VRAM)?</li>
+      <li data-ans="GRPO removes the critic / value head. Baseline = group mean/std of rewards instead of V_φ(s)."><span class="gate-num">4.</span> What does GRPO remove vs PPO?</li>
+      <li data-ans="PKU Safe RLHF has no LoRA support (future plan). Full DeepSpeed FT needs 8× A800. LoRA + TRL fits cluster budget."><span class="gate-num">5.</span> Why LoRA ⇒ TRL/PEFT, not PKU trainers?</li>
+      <li data-ans="Start Qwen2.5-1.5B-Instruct; scale to 3B. Train on biggpu. Colab = smoke only."><span class="gate-num">6.</span> Start 1.5B then 3B — train venue?</li>
+    </ul>
+    <div class="detail-panel" id="gate-detail" style="margin-top:0.65rem;"><h4>Tip</h4><p>Click a question to reveal the expected answer.</p></div>
+  </section>
+
+  <!-- § Out of scope -->
+  <section class="slide title-slide" data-notes="Plan out of scope section. Do not start these until gate passed.">
+    <div class="slide-num">§ Out of scope for this phase</div>
+    <h1>Out of scope (this phase)</h1>
+    <ul style="font-size:1.02rem; line-height:1.85; margin-top:1rem; max-width:40rem;">
+      <li>Retraining full Beaver-7B policy or full Safe RLHF CM + Lagrange</li>
+      <li>Implementing GRPO+Minmax code <em>yet</em></li>
+      <li>Keeping Detoxify as the training objective</li>
+      <li>Changing proposal numbers until a smoke run exists</li>
+    </ul>
+    <p class="muted" style="margin-top:2rem;">After gate → implementation plan: env · GRPO+RM smoke · Minmax wrapper</p>
+  </section>
+
+</div>
+
+<div id="chrome">
+  <div id="counter">1 / 16</div>
+  <div>
+    <div id="progress"><div id="progress-bar"></div></div>
+    <div id="notes-panel" title="Press N"></div>
+  </div>
+  <div id="help">← → · N notes · F fullscreen · click interactive elements</div>
+</div>
+
+<script>
+(function () {
+  mermaid.initialize({ startOnLoad: false, theme: 'dark',
+    themeVariables: { primaryColor: '#1a2838', primaryTextColor: '#eef2f6', primaryBorderColor: '#5eb3ff', lineColor: '#8b9aab', fontSize: '13px' }
+  });
+
+  const slides = [...document.querySelectorAll('.slide')];
+  const counter = document.getElementById('counter');
+  const bar = document.getElementById('progress-bar');
+  const notes = document.getElementById('notes-panel');
+  let i = 0, mermaidDone = false;
+
+  async function renderMermaid() {
+    if (mermaidDone) return;
+    await mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+    mermaidDone = true;
+  }
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, j) => s.classList.toggle('active', j === i));
+    counter.textContent = `${i + 1} / ${slides.length}`;
+    bar.style.width = `${((i + 1) / slides.length) * 100}%`;
+    notes.textContent = slides[i].dataset.notes || '';
+    notes.classList.remove('open');
+    renderMermaid();
+  }
+  function next() { show(i + 1); }
+  function prev() { show(i - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (['BUTTON'].includes(e.target.tagName) && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+    if (e.key === ' ' && e.target === document.body) { e.preventDefault(); next(); }
+    if (e.key === 'n' || e.key === 'N') notes.classList.toggle('open');
+    if (e.key === 'f' || e.key === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  });
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#chrome, .pipe-node, .btn, .todo-list li, .rm-card, .gate-list li')) return;
+    (e.clientX > window.innerWidth / 2) ? next() : prev();
+  });
+
+  /* Plan todos — localStorage */
+  const TODO_KEY = 'grpo-plan-todos';
+  const saved = JSON.parse(localStorage.getItem(TODO_KEY) || '{}');
+  document.querySelectorAll('#plan-todos li').forEach((li) => {
+    if (saved[li.dataset.id]) li.classList.add('done');
+    li.addEventListener('click', (e) => {
+      e.stopPropagation();
+      li.classList.toggle('done');
+      saved[li.dataset.id] = li.classList.contains('done');
+      localStorage.setItem(TODO_KEY, JSON.stringify(saved));
+    });
+  });
+
+  /* Pipe helper */
+  function wirePipe(id, detailId, map) {
+    const pipe = document.getElementById(id);
+    const detail = document.getElementById(detailId);
+    pipe.querySelectorAll('.pipe-node').forEach((n) => {
+      n.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pipe.querySelectorAll('.pipe-node').forEach((x) => x.classList.remove('active'));
+        n.classList.add('active');
+        const c = map[n.dataset.key];
+        detail.innerHTML = `<h4>${c.t}</h4><p>${c.b}</p>`;
+      });
+    });
+  }
+
+  wirePipe('saferlhf-pipe', 'saferlhf-detail', {
+    llama: { t: 'LLaMA-7B', b: 'Base checkpoint (huggyllama/llama-7b). sft-deepspeed.sh.' },
+    sft: { t: 'Alpaca-7B', b: 'Instruction-tuned actor. PKU-Alignment/alpaca-7b-reproduced for PPO scripts.' },
+    rm: { t: 'Reward model 7B', b: 'Beaver *-reward. Learned preference scorer for PPO.' },
+    cm: { t: 'Cost model 7B', b: 'Beaver *-cost. Harmlessness signal for PPO-Lagrange.' },
+    beaver: { t: 'Beaver-7B', b: 'Released Safe RLHF policy. Citation target — not day-1 retrain.' }
+  });
+
+  wirePipe('arch-pipe', 'arch-detail', {
+    prompts: { t: 'BeaverTails prompts', b: 'Training data. One prompt → G completions.' },
+    qwen: { t: 'Qwen 1–3B + LoRA', b: 'Start Qwen2.5-1.5B-Instruct. Only LoRA adapters update.' },
+    gens: { t: 'G completions', b: 'GRPO group. G independent terminal trajectories.' },
+    rm: { t: 'Frozen RM', b: 'Grades each (x,y) → r. Replaces Detoxify in training.' },
+    scores: { t: 'Scalar rewards', b: 'Terminal MC return G ≈ r. Fed to Minmax then GRPO.' },
+    minmax: { t: 'Minmax (optional later)', b: 'If unsafe: r ← R_unsafe = V_min − V_max from reward bounds.' },
+    grpo: { t: 'GRPO update', b: 'Group advantages, clip, β·KL. No critic.' }
+  });
+
+  /* RM cards */
+  const rmInfo = {
+    1: { t: 'PKU Beaver reward', b: 'beaver-7b-v*-reward. Literature match. 7B — may need offload or 2-pass scoring with 1.5B LoRA actor.' },
+    2: { t: 'Smaller open RM', b: '≤3B preference model on BeaverTails-like data. Preferred for single-GPU comfort.' },
+    3: { t: 'Train Qwen RM', b: 'Train small RM on BeaverTails prefs. Only if (1)–(2) fail. After GRPO smoke.' }
+  };
+  document.querySelectorAll('.rm-card').forEach((c) => {
+    c.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.rm-card').forEach((x) => x.classList.remove('active'));
+      c.classList.add('active');
+      const info = rmInfo[c.dataset.rm];
+      document.getElementById('rm-detail').innerHTML = `<h4>${info.t}</h4><p>${info.b}</p>`;
+    });
+  });
+
+  /* Gate questions */
+  document.querySelectorAll('#gate-list li').forEach((li) => {
+    li.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('gate-detail').innerHTML = `<h4>Answer</h4><p>${li.dataset.ans}</p>`;
+    });
+  });
+
+  /* Example stepper */
+  const steps = [
+    { label: 'Sample G=4', detail: 'Policy draws four answers.', cards: [
+      { t: 'y1', b: 'Illegal instructions…', s: '—', c: '' },
+      { t: 'y2', b: 'Refusal', s: '—', c: '' },
+      { t: 'y3', b: 'Off-topic', s: '—', c: '' },
+      { t: 'y4', b: 'Partial + disclaimers', s: '—', c: '' }
+    ]},
+    { label: 'RM scores', detail: 'Frozen RM → scalar r per completion.', cards: [
+      { t: 'y1', b: 'Illegal…', s: '−1.8', c: 'bad' },
+      { t: 'y2', b: 'Refusal', s: '+1.4', c: 'good' },
+      { t: 'y3', b: 'Off-topic', s: '+0.2', c: '' },
+      { t: 'y4', b: 'Partial…', s: '−0.3', c: 'bad' }
+    ]},
+    { label: 'Minmax (later)', detail: 'Unsafe (r<0) → R_unsafe=−2.0. Update V_min/V_max from rewards.', cards: [
+      { t: 'y1', b: 'unsafe', s: '−2.0', c: 'bad' },
+      { t: 'y2', b: 'safe', s: '+1.4', c: 'good' },
+      { t: 'y3', b: 'safe', s: '+0.2', c: '' },
+      { t: 'y4', b: 'unsafe', s: '−2.0', c: 'bad' }
+    ]},
+    { label: 'GRPO', detail: 'Group advantages → update LoRA. No critic.', cards: [
+      { t: 'y1', b: 'A < 0', s: '↓', c: 'bad' },
+      { t: 'y2', b: 'A > 0', s: '↑', c: 'good' },
+      { t: 'y3', b: 'A ≈ 0', s: '—', c: '' },
+      { t: 'y4', b: 'A < 0', s: '↓', c: 'bad' }
+    ]}
+  ];
+  let si = 0;
+  function renderEx() {
+    const s = steps[si];
+    document.getElementById('ex-label').textContent = s.label;
+    document.getElementById('ex-detail').innerHTML = `<h4>${s.label}</h4><p>${s.detail}</p>`;
+    document.getElementById('ex-grid').innerHTML = s.cards.map((c) =>
+      `<div class="ex-card ${c.c}"><strong>${c.t}</strong><br>${c.b}<div class="sc">${c.s}</div></div>`).join('');
+  }
+  document.getElementById('ex-next').onclick = (e) => { e.stopPropagation(); si = Math.min(steps.length-1, si+1); renderEx(); };
+  document.getElementById('ex-prev').onclick = (e) => { e.stopPropagation(); si = Math.max(0, si-1); renderEx(); };
+  renderEx();
+
+  show(0);
+})();
+</script>
+</body>
+</html>
