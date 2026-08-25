@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safe RLHF via Minmax Penalties — Proposal Defence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Caveat:wght@500;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --y:#E0A23A; --y-d:#c1861f;
+    --r:#DE5B4F; --r-d:#c03e33;
+    --b:#4C8FC0; --b-d:#3672a1;
+    --g:#6FA658; --g-d:#548a3d;
+    --paper:#fbf8f0;
+    --ink:#333029;
+    --muted:#6f6a5f;
+    --grid:rgba(76,143,192,0.16);
+    --dash:#c7bfa9;
+    --margin-red:#e2938d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html, body{height:100%; overflow:hidden;}
+  body{
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:26px 26px;
+    color:var(--ink);
+    font-family:'Patrick Hand', cursive;
+    font-size:19px;
+  }
+  ::selection{background:var(--y); color:#fff;}
+  .sketchy{filter:url(#sketchy);}
+  button{font-family:'Patrick Hand', cursive;}
+
+  /* ===== HORIZONTAL SLIDE MECHANICS ===== */
+  .viewport{position:relative; width:100vw; height:100vh; overflow:hidden; cursor:pointer;}
+  .deck{
+    display:flex; height:100vh;
+    transition:transform 0.55s cubic-bezier(.65,0,.35,1);
+    will-change:transform;
+  }
+  section{
+    flex:0 0 100vw; width:100vw; height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding:6vh 8vw 6vh 130px;
+    position:relative;
+  }
+  .content{width:100%; max-width:1100px;}
+
+  h1,h2,h3{font-family:'Patrick Hand', cursive; font-weight:400;}
+  .caveat{font-family:'Caveat', cursive; font-weight:700;}
+  .kalam{font-family:'Kalam', cursive;}
+
+  .card-title{display:flex; align-items:center; gap:0.7rem; margin-bottom:1.5rem;}
+  .card-title svg.globe{width:34px; height:34px; color:var(--ink); flex-shrink:0;}
+  .card-title h2{font-size:2.2rem;}
+
+  p{color:var(--muted); line-height:1.55; max-width:680px; font-size:1.1rem;}
+  .lede{font-size:1.25rem; color:var(--ink); max-width:760px; line-height:1.5;}
+
+  .dash-line{flex:1; border-top:2px dashed var(--dash); position:relative; top:-2px;}
+
+  .spiral{position:fixed; left:0; top:0; bottom:0; width:46px; z-index:15; pointer-events:none;
+    background:linear-gradient(90deg, rgba(0,0,0,0.06), transparent 90%);}
+  .spiral .hole{position:absolute; left:16px; width:14px; height:14px; border-radius:50%;
+    background:var(--paper); border:2px solid #c9c2ac; box-shadow:inset 1px 1px 2px rgba(0,0,0,0.15);}
+  .margin-line{position:fixed; left:66px; top:0; bottom:0; width:2px; background:var(--margin-red); opacity:0.55; z-index:14;}
+
+  /* bottom-center robot-head nav, normal-slides style */
+  .bot-nav{position:fixed; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:10px; z-index:20;}
+  .bot-nav button{background:none; border:none; cursor:pointer; width:26px; height:26px; padding:0; opacity:0.35; transition:all 0.25s ease;}
+  .bot-nav button svg{width:100%; height:100%;}
+  .bot-nav button.active{opacity:1; transform:scale(1.25);}
+
+  .slide-count{position:fixed; right:24px; bottom:18px; z-index:20; font-family:'Kalam'; font-size:0.85rem; color:var(--muted);}
+
+  footer.credit{position:fixed; left:80px; bottom:18px; z-index:20; font-family:'Kalam'; font-size:0.85rem; color:#8a8478;}
+
+  @keyframes wiggle{0%,100%{transform:rotate(0deg);} 25%{transform:rotate(-6deg);} 50%{transform:rotate(5deg);} 75%{transform:rotate(-3deg);}}
+  .fig.talking{animation:wiggle 0.6s ease-in-out;}
+  .fig, .fig-big{transform-origin:50% 90%;}
+
+  .blob{border:3px solid var(--y); border-radius:255px 15px 225px 15px/15px 225px 15px 255px; padding:1rem 1.2rem;}
+
+  .hand-btn{
+    font-size:1.1rem; padding:0.55rem 1.3rem; background:var(--paper);
+    border:3px solid var(--ink); border-radius:255px 15px 225px 15px/15px 225px 15px 255px;
+    cursor:pointer; color:var(--ink); transition:transform 0.15s ease;
+  }
+  .hand-btn:hover{transform:translateY(-2px) rotate(-1deg);}
+  .hand-btn:active{transform:translateY(0) rotate(0);}
+
+  /* ===== SLIDE 1: TITLE ===== */
+  #s1 .content{text-align:center; margin:0 auto;}
+  .cast{display:flex; gap:2.4rem; justify-content:center; margin-bottom:1.6rem; flex-wrap:wrap;}
+  .bot-wrap{position:relative;}
+  .speech-pop{
+    position:absolute; top:-42px; left:50%; transform:translateX(-50%) scale(0.6);
+    background:var(--paper); border:2px solid var(--ink); border-radius:10px; padding:3px 12px;
+    font-family:'Kalam'; font-size:0.95rem; opacity:0; transition:all 0.25s ease; white-space:nowrap; pointer-events:none;
+  }
+  .speech-pop.show{opacity:1; transform:translateX(-50%) scale(1);}
+  .fig{width:86px; height:148px;}
+  .title-main{font-family:'Patrick Hand'; font-size:clamp(2.5rem,5vw,4rem); font-weight:400; line-height:1.18; max-width:920px; margin:0 auto;}
+  .title-sub{margin-top:1rem; font-family:'Kalam'; font-size:1.25rem; color:var(--muted); max-width:800px; margin-left:auto; margin-right:auto; line-height:1.5;}
+  .title-rule{width:260px; height:2px; background:var(--ink); margin:1.5rem auto 1.1rem;}
+  .byline{display:flex; flex-direction:column; gap:0.35rem; font-family:'Kalam'; font-size:1.05rem; color:var(--ink);}
+
+  /* ===== standard content slide ===== */
+  .card-title{display:flex; align-items:center; gap:0.9rem; margin-bottom:1.8rem;}
+  .card-title svg.globe{width:40px; height:40px; color:var(--ink); flex-shrink:0;}
+  .card-title h2{font-size:2.6rem;}
+  .slide-row{display:flex; align-items:center; gap:3.5rem;}
+  .slide-row .text-col{flex:1 1 auto;}
+  .slide-row .fig-big{width:180px; height:auto; flex:0 0 auto;}
+  .lede{font-size:1.35rem; color:var(--ink); line-height:1.6; max-width:640px;}
+  .lede + .lede{margin-top:1rem;}
+  .sub-note{margin-top:1.3rem; font-family:'Kalam'; font-size:1.05rem; color:var(--muted); max-width:600px; line-height:1.5;}
+
+  /* ===== FIX CARDS (two-patch comparison) ===== */
+  .fix-grid{display:grid; grid-template-columns:1fr 1fr; gap:1.8rem; max-width:900px; margin-top:0.8rem;}
+  .fix-card{border:3px solid var(--c); border-radius:18px; padding:1.5rem 1.6rem; background:rgba(255,255,255,0.5);}
+  .fix-card .fc-title{font-size:1.5rem; color:var(--c);}
+  .fix-card .fc-body{font-family:'Kalam'; font-size:1rem; color:var(--muted); margin-top:0.6rem; line-height:1.5;}
+
+  /* ===== COST TABLE ===== */
+  .cost-table{width:100%; max-width:920px; margin-top:0.8rem; border-collapse:collapse;}
+  .cost-table th, .cost-table td{padding:0.7rem 1rem; text-align:left; border-bottom:2px dashed var(--dash);}
+  .cost-table th{font-family:'Kalam'; font-size:0.95rem; color:var(--muted); font-weight:400;}
+  .cost-table td.approach{font-size:1.15rem;}
+  .cost-table td.yes{color:var(--r-d); font-family:'Kalam'; font-weight:700;}
+  .cost-table td.no{color:var(--g-d); font-family:'Kalam'; font-weight:700;}
+
+  /* ===== QUOTE / QUESTION CALLOUT ===== */
+  .quote-box{border:3px dashed var(--ink); border-radius:20px; padding:2.2rem 2.6rem; max-width:820px; margin-top:1rem;}
+  .quote-box p{font-size:1.6rem; color:var(--ink); line-height:1.55; max-width:none;}
+
+  /* ===== FORMULA BLOCK ===== */
+  .formula{font-family:'Kalam'; font-size:1.05rem; color:var(--ink); background:rgba(255,255,255,0.6);
+    border:2px dashed var(--dash); border-radius:10px; padding:0.6rem 0.9rem; margin-top:0.7rem; display:inline-block;}
+
+  /* ===== ALGORITHM BOX ===== */
+  .algo-box{font-family:'Kalam'; font-size:0.92rem; color:var(--ink); background:rgba(255,255,255,0.55);
+    border:2.5px dashed var(--b); border-radius:14px; padding:1.2rem 1.5rem; max-width:640px; line-height:1.7; white-space:pre;}
+  .algo-note{font-family:'Kalam'; font-size:0.85rem; color:var(--muted); margin-top:0.2rem;}
+  .dev-list{margin-top:1rem; max-width:640px;}
+  .dev-list li{font-family:'Kalam'; font-size:0.95rem; color:var(--muted); margin-bottom:0.5rem; line-height:1.5; list-style:none; padding-left:1.3rem; position:relative;}
+  .dev-list li::before{content:'—'; position:absolute; left:0; color:var(--b);}
+
+  /* ===== HYPOTHESIS CARD ===== */
+  .hyp-card{border:3px solid var(--c); border-radius:20px; padding:1.8rem 2.1rem; max-width:760px; background:rgba(255,255,255,0.5); margin-top:0.6rem;}
+  .hyp-tag{font-family:'Kalam'; font-weight:700; font-size:1.1rem; color:var(--c);}
+  .hyp-card p{color:var(--ink); font-size:1.2rem; line-height:1.6; max-width:none; margin-top:0.5rem;}
+  .hyp-card .hyp-sub{color:var(--muted); font-family:'Kalam'; font-size:0.95rem; margin-top:0.7rem; line-height:1.5;}
+
+  /* ===== ARCH / PHASE ROW ===== */
+  .phase-row{display:flex; align-items:center; gap:1.4rem; max-width:920px; margin-top:1rem; flex-wrap:wrap;}
+  .phase-card{flex:1 1 320px; border:3px solid var(--c); border-radius:16px; padding:1.2rem 1.4rem; background:rgba(255,255,255,0.5);}
+  .phase-card .ph-title{font-size:1.35rem; color:var(--c);}
+  .phase-card .ph-body{font-family:'Kalam'; font-size:0.92rem; color:var(--muted); margin-top:0.5rem; line-height:1.5;}
+  .phase-arrow{width:34px; height:34px; flex:0 0 auto; color:var(--muted); transform:rotate(90deg);}
+
+  /* ===== CHART ===== */
+  .chart-wrap{display:flex; align-items:center; gap:2.5rem; flex-wrap:wrap; margin-top:0.8rem;}
+  .chart-legend{font-family:'Kalam'; font-size:0.95rem; color:var(--muted); display:flex; flex-direction:column; gap:0.5rem;}
+  .chart-legend span.dot{display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:0.5rem;}
+
+  /* ===== GENERIC ITEM LIST ===== */
+  .item-list{margin-top:0.8rem; max-width:760px;}
+  .item-list li{font-family:'Kalam'; font-size:1.02rem; color:var(--muted); margin-bottom:0.7rem; line-height:1.55; list-style:none; padding-left:1.5rem; position:relative;}
+  .item-list li::before{content:'✎'; position:absolute; left:0; color:var(--y-d);}
+  .item-list b{color:var(--ink); font-family:'Patrick Hand'; font-size:1.1rem;}
+
+  .closing-tag{font-family:'Kalam'; font-size:1rem; color:var(--muted); margin-top:1rem;}
+  .toc{display:flex; flex-direction:column; gap:1.3rem; margin-top:1.2rem; max-width:720px;}
+  .toc-item{display:flex; align-items:center; gap:1rem;}
+  .toc-item svg.heart{width:26px; height:26px; flex-shrink:0;}
+  .toc-item .num{font-family:'Kalam'; font-weight:700; font-size:1.15rem; width:1.8rem;}
+  .toc-item .label{font-size:1.5rem;}
+  .toc-item svg.plane{width:22px; height:22px; margin-left:auto; flex-shrink:0;}
+
+  /* ===== DIVIDER (section-break slide) ===== */
+  .divider .content{display:flex; align-items:center; gap:2.4rem;}
+  .fig-big{width:150px; height:230px; flex-shrink:0;}
+  .divider .mid{flex:1; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;}
+  .divider .star-sm{width:28px; height:28px; flex-shrink:0;}
+  .divider h1.caveat{font-size:clamp(2.6rem,5.6vw,4.4rem); white-space:nowrap;}
+  .divider .end-icon{width:46px; height:46px; flex-shrink:0; color:var(--y);}
+  .divider .sub{margin-top:1.1rem; font-family:'Kalam'; font-size:1.1rem; color:var(--muted); max-width:640px; width:100%;}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute;">
+<defs>
+  <filter id="sketchy" x="-20%" y="-20%" width="140%" height="140%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="4" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2"/>
+  </filter>
+  <symbol id="robo-cheer" viewBox="0 0 100 170"><g fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"><line x1="50" y1="14" x2="50" y2="2"/><circle cx="50" cy="2" r="4" fill="currentColor" stroke="none"/><rect x="26" y="14" width="48" height="36" rx="10"/><circle cx="40" cy="32" r="3.4" fill="currentColor" stroke="none"/><circle cx="60" cy="32" r="3.4" fill="currentColor" stroke="none"/><path d="M40 42 Q50 48 60 42"/><rect x="22" y="54" width="56" height="58" rx="12"/><circle cx="50" cy="83" r="7"/><line x1="22" y1="62" x2="4" y2="46"/><circle cx="4" cy="46" r="5"/><line x1="78" y1="62" x2="96" y2="46"/><circle cx="96" cy="46" r="5"/><rect x="32" y="112" width="14" height="32" rx="4"/><rect x="54" y="112" width="14" height="32" rx="4"/><rect x="28" y="144" width="22" height="8" rx="3"/><rect x="50" y="144" width="22" height="8" rx="3"/></g></symbol>
+  <symbol id="robo-wave" viewBox="0 0 100 170"><g fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"><line x1="50" y1="14" x2="50" y2="2"/><circle cx="50" cy="2" r="4" fill="currentColor" stroke="none"/><rect x="26" y="14" width="48" height="36" rx="10"/><circle cx="40" cy="32" r="3.4" fill="currentColor" stroke="none"/><circle cx="60" cy="32" r="3.4" fill="currentColor" stroke="none"/><line x1="40" y1="44" x2="60" y2="44"/><rect x="22" y="54" width="56" height="58" rx="12"/><circle cx="50" cy="83" r="7"/><line x1="22" y1="66" x2="10" y2="100"/><circle cx="10" cy="100" r="5"/><polyline points="78,64 96,44 88,20"/><circle cx="88" cy="20" r="5"/><rect x="32" y="112" width="14" height="32" rx="4"/><rect x="54" y="112" width="14" height="32" rx="4"/><rect x="28" y="144" width="22" height="8" rx="3"/><rect x="50" y="144" width="22" height="8" rx="3"/></g></symbol>
+  <symbol id="robo-point" viewBox="0 0 100 170"><g fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"><line x1="50" y1="14" x2="50" y2="2"/><circle cx="50" cy="2" r="4" fill="currentColor" stroke="none"/><rect x="26" y="14" width="48" height="36" rx="10"/><circle cx="40" cy="32" r="3.4" fill="currentColor" stroke="none"/><circle cx="60" cy="32" r="3.4" fill="currentColor" stroke="none"/><line x1="40" y1="44" x2="60" y2="44"/><rect x="22" y="54" width="56" height="58" rx="12"/><circle cx="50" cy="83" r="7"/><line x1="22" y1="66" x2="8" y2="94"/><circle cx="8" cy="94" r="5"/><line x1="78" y1="62" x2="98" y2="50"/><circle cx="98" cy="50" r="5"/><rect x="32" y="112" width="14" height="32" rx="4"/><rect x="54" y="112" width="14" height="32" rx="4"/><rect x="28" y="144" width="22" height="8" rx="3"/><rect x="50" y="144" width="22" height="8" rx="3"/></g></symbol>
+  <symbol id="robo-roll" viewBox="-16 0 116 170"><g fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"><line x1="50" y1="14" x2="50" y2="2"/><circle cx="50" cy="2" r="4" fill="currentColor" stroke="none"/><rect x="26" y="14" width="48" height="36" rx="10"/><circle cx="40" cy="32" r="3.4" fill="currentColor" stroke="none"/><circle cx="60" cy="32" r="3.4" fill="currentColor" stroke="none"/><line x1="40" y1="44" x2="60" y2="44"/><rect x="22" y="54" width="56" height="58" rx="12"/><circle cx="50" cy="83" r="7"/><line x1="22" y1="66" x2="6" y2="80"/><circle cx="6" cy="80" r="5"/><line x1="78" y1="66" x2="94" y2="54"/><circle cx="94" cy="54" r="5"/><circle cx="38" cy="148" r="16"/><circle cx="62" cy="148" r="16"/></g></symbol>
+  <symbol id="robo-worry" viewBox="0 0 100 170"><g fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"><line x1="50" y1="14" x2="50" y2="2"/><circle cx="50" cy="2" r="4" fill="currentColor" stroke="none"/><rect x="26" y="14" width="48" height="36" rx="10"/><line x1="35" y1="24" x2="43" y2="27"/><line x1="65" y1="24" x2="57" y2="27"/><circle cx="40" cy="32" r="3.4" fill="currentColor" stroke="none"/><circle cx="60" cy="32" r="3.4" fill="currentColor" stroke="none"/><path d="M40 46 Q50 40 60 46"/><rect x="22" y="54" width="56" height="58" rx="12"/><circle cx="50" cy="83" r="7"/><line x1="22" y1="66" x2="8" y2="94"/><circle cx="8" cy="94" r="5"/><line x1="78" y1="66" x2="92" y2="94"/><circle cx="92" cy="94" r="5"/><rect x="32" y="112" width="14" height="32" rx="4"/><rect x="54" y="112" width="14" height="32" rx="4"/><rect x="28" y="144" width="22" height="8" rx="3"/><rect x="50" y="144" width="22" height="8" rx="3"/></g></symbol>
+  <symbol id="ic-heart" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" d="M12 20 C4 14 2 9 5 6 C7.5 3.5 11 4.5 12 8 C13 4.5 16.5 3.5 19 6 C22 9 20 14 12 20Z"/></symbol>
+  <symbol id="ic-star" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M12 2 L14.5 9 L22 9.5 L16 14.5 L18 22 L12 17.5 L6 22 L8 14.5 L2 9.5 L9.5 9 Z"/></symbol>
+  <symbol id="ic-planet" viewBox="0 0 56 34"><circle cx="22" cy="17" r="10" fill="none" stroke="currentColor" stroke-width="2.4"/><ellipse cx="22" cy="17" rx="20" ry="6" fill="none" stroke="currentColor" stroke-width="2.4"/></symbol>
+  <symbol id="ic-plane" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M2 12 L22 4 L14 22 L11 14 L2 12 Z M11 14 L22 4"/></symbol>
+  <symbol id="ic-globe" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="2.4"/><ellipse cx="20" cy="20" rx="8" ry="17" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3" y1="20" x2="37" y2="20" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="ic-gear" viewBox="0 0 40 40"><g fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="20" cy="20" r="8"/><circle cx="20" cy="20" r="2.6"/><line x1="20" y1="3" x2="20" y2="10"/><line x1="20" y1="30" x2="20" y2="37"/><line x1="3" y1="20" x2="10" y2="20"/><line x1="30" y1="20" x2="37" y2="20"/></g></symbol>
+  <symbol id="ic-target" viewBox="0 0 40 40"><g fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="20" cy="20" r="17"/><circle cx="20" cy="20" r="11"/><circle cx="20" cy="20" r="5"/></g></symbol>
+  <symbol id="ic-folder" viewBox="0 0 40 32"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" d="M2 6 h12 l4 4 h20 v18 h-36 Z"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5 L10.5 15.5 L16.5 8.5"/></symbol>
+  <symbol id="ic-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="ic-arrow-up" viewBox="0 0 34 68"><path fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" d="M17 66 V12 M5 24 L17 8 L29 24"/></symbol>
+  <symbol id="ic-chev-left" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M15 5 L8 12 L15 19"/></symbol>
+  <symbol id="ic-chev-right" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M9 5 L16 12 L9 19"/></symbol>
+  <symbol id="ic-bothead" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/><circle cx="15" cy="12" r="1.6" fill="currentColor"/><line x1="12" y1="5" x2="12" y2="1.5" stroke="currentColor" stroke-width="2"/></symbol>
+</defs>
+</svg>
+
+<div class="spiral" id="spiral"></div>
+<div class="margin-line"></div>
+<nav class="bot-nav" id="botNav" aria-label="Slide navigation"></nav>
+<div class="slide-count" id="slideCount"></div>
+<footer class="credit">MSc Proposal Defence</footer>
+
+<div class="viewport" id="viewport">
+<div class="deck" id="deck">
+
+  <!-- 01 TITLE -->
+  <section id="s1">
+    <div class="content">
+      <div class="cast" id="cast">
+        <div class="bot-wrap"><div class="speech-pop">beep!</div><svg class="fig sketchy" style="color:var(--y);"><use href="#robo-cheer"/></svg></div>
+        <div class="bot-wrap"><div class="speech-pop">boop!</div><svg class="fig sketchy" style="color:var(--r);"><use href="#robo-cheer"/></svg></div>
+        <div class="bot-wrap"><div class="speech-pop">safe!</div><svg class="fig sketchy" style="color:var(--b);"><use href="#robo-cheer"/></svg></div>
+        <div class="bot-wrap"><div class="speech-pop">01001000</div><svg class="fig sketchy" style="color:var(--g);"><use href="#robo-cheer"/></svg></div>
+      </div>
+      <h1 class="title-main">Safe RLHF via Minmax Penalties:<br>Value-Function-Derived Safety Signals for LLM Fine-Tuning</h1>
+      <div class="title-sub">Can the agent's own value function replace KL penalties and learned cost models as the safety signal in PPO-based LLM fine-tuning?</div>
+      <div class="title-rule"></div>
+      <div class="byline">
+        <span>Wendy Maboa · 2541693</span>
+        <span>RAIL Lab, School of CS &amp; Applied Mathematics, Wits</span>
+        <span>Supervised by Dr. Geraud Nangue Tasse &amp; Dr. Steven James</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 TABLE OF CONTENTS -->
+  <section id="toc">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-globe"/></svg><h2>What's in this talk</h2></div>
+      <div class="toc">
+        <div class="toc-item"><svg class="heart" style="color:var(--y);"><use href="#ic-heart"/></svg><span class="num">01</span><span class="label">The problem &mdash; and what it costs to fix</span><svg class="plane" style="color:var(--y);"><use href="#ic-plane"/></svg></div>
+        <div class="toc-item"><svg class="heart" style="color:var(--r);"><use href="#ic-heart"/></svg><span class="num">02</span><span class="label">Our idea &mdash; let the value function police itself</span><svg class="plane" style="color:var(--r);"><use href="#ic-plane"/></svg></div>
+        <div class="toc-item"><svg class="heart" style="color:var(--b);"><use href="#ic-heart"/></svg><span class="num">03</span><span class="label">What we're testing &mdash; three hypotheses</span><svg class="plane" style="color:var(--b);"><use href="#ic-plane"/></svg></div>
+        <div class="toc-item"><svg class="heart" style="color:var(--g);"><use href="#ic-heart"/></svg><span class="num">04</span><span class="label">The plan &mdash; method, evaluation, what's next</span><svg class="plane" style="color:var(--g);"><use href="#ic-plane"/></svg></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 THE PROBLEM (divider) -->
+  <section id="problemDivider" class="divider">
+    <div class="content">
+      <svg class="fig-big sketchy" style="color:var(--r);"><use href="#robo-worry"/></svg>
+      <div class="mid">
+        <svg class="star-sm" style="color:var(--y);"><use href="#ic-star"/></svg>
+        <div class="dash-line"></div>
+        <h1 class="caveat">The Problem</h1>
+        <div class="dash-line"></div>
+        <svg class="end-icon"><use href="#ic-target"/></svg>
+        <div class="sub">RLHF makes LLMs helpful. It doesn't guarantee they're safe.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 THE PROBLEM (detail) -->
+  <section id="s2">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-target"/></svg><h2>Training doesn't erase the risk</h2></div>
+      <div class="slide-row">
+        <div class="text-col">
+          <p class="lede">RLHF is the standard way to align LLMs with human intent &mdash; and it works well for helpfulness.</p>
+          <p class="lede">But safety training doesn't generalise as robustly as capability does: aligned models remain vulnerable to producing harmful content across BeaverTails' 14 harm categories, to reward hacking against imperfect proxy rewards, and to deceptive alignment, where a model appears compliant while pursuing misaligned goals internally.</p>
+          <p class="sub-note">The question isn't whether RLHF can be made safer &mdash; it's whether it can be done without adding a second model, more annotation, or another hyperparameter to tune.</p>
+        </div>
+        <svg class="fig-big sketchy" style="color:var(--r);"><use href="#robo-point"/></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 THE CURRENT FIX -->
+  <section id="s3">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-gear"/></svg><h2>So the field patches it</h2></div>
+      <p class="lede">Two mechanisms dominate: anchor the policy, or add a second model to police it.</p>
+      <div class="fix-grid">
+        <div class="fix-card" style="--c:var(--b);">
+          <div class="fc-title">KL penalty</div>
+          <div class="fc-body">Anchors the policy to a frozen reference model during PPO training, discouraging it from drifting into reward-hacked or degenerate behaviour. Standard since Ziegler et al. and InstructGPT.</div>
+          <div class="formula">R<sub>RLHF</sub>(s,a) = r<sub>&phi;</sub>(s,a) &minus; &beta;&middot;KL[&pi;<sub>&theta;</sub>(&middot;|s) &Vert; &pi;<sub>ref</sub>(&middot;|s)]</div>
+          <div class="fc-body" style="margin-top:0.5rem; font-size:0.9rem;">Distinct from PPO's own clipped surrogate objective, which is a training-stability trust region, not a safety mechanism.</div>
+        </div>
+        <div class="fix-card" style="--c:var(--r);">
+          <div class="fc-title">Learned cost model</div>
+          <div class="fc-body">Safe RLHF and HC-RLHF train a separate model on human harmlessness labels, then balance it against the helpfulness reward via a Lagrange multiplier.</div>
+          <div class="formula">max<sub>&pi;</sub> J<sub>R</sub>(&pi;) &nbsp; s.t. &nbsp; J<sub>C</sub>(&pi;) &le; d</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 THE PRICE -->
+  <section id="s4">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-folder"/></svg><h2>But the fix has a price</h2></div>
+      <p class="lede">Every existing approach adds something to the core PPO loop.</p>
+      <table class="cost-table">
+        <tr><th>Approach</th><th>Extra model?</th><th>Extra annotation?</th><th>Extra hyperparameter?</th></tr>
+        <tr><td class="approach">KL baseline</td><td class="no">No</td><td class="no">No</td><td class="yes">Yes (β)</td></tr>
+        <tr><td class="approach">Safe RLHF</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes (λ, d)</td></tr>
+        <tr><td class="approach">HC-RLHF</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 07 THE CENTRAL QUESTION -->
+  <section id="s5">
+    <div class="content" style="text-align:center;">
+      <div class="card-title" style="justify-content:center;"><svg class="globe sketchy"><use href="#ic-target"/></svg><h2>The central question</h2></div>
+      <div class="quote-box" style="margin-left:auto; margin-right:auto; text-align:left;">
+        <p>Can we replace KL penalties and learned cost models with a safety signal that already exists inside the agent's own value function &mdash; no new model, no new annotation, no new hyperparameter?</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 OUR IDEA (divider) -->
+  <section id="ideaDivider" class="divider">
+    <div class="content">
+      <svg class="fig-big sketchy" style="color:var(--g);"><use href="#robo-cheer"/></svg>
+      <div class="mid">
+        <svg class="star-sm" style="color:var(--b);"><use href="#ic-star"/></svg>
+        <div class="dash-line"></div>
+        <h1 class="caveat">Our Idea</h1>
+        <div class="dash-line"></div>
+        <svg class="end-icon" style="color:var(--g);"><use href="#ic-planet"/></svg>
+        <div class="sub">ROSARL: let the critic's own value estimates supply the safety penalty &mdash; no auxiliary model required.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 09 ROSARL MECHANISM -->
+  <section id="s6">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-gear"/></svg><h2>The value function already knows</h2></div>
+      <p class="lede">ROSARL tracks the best and worst values the agent has encountered, and turns the gap between them into the penalty.</p>
+      <div class="formula" style="display:block; max-width:640px;">
+        R<sub>min</sub> &larr; min(R<sub>min</sub>, r<sub>t</sub>) &nbsp;&nbsp; R<sub>max</sub> &larr; max(R<sub>max</sub>, r<sub>t</sub>)<br>
+        V<sub>min</sub> &larr; min(V<sub>min</sub>, R<sub>min</sub>, V(s<sub>t</sub>)) &nbsp;&nbsp; V<sub>max</sub> &larr; max(V<sub>max</sub>, R<sub>max</sub>, V(s<sub>t</sub>))<br>
+        R<sub>unsafe</sub> = V<sub>min</sub> &minus; V<sub>max</sub> &nbsp; (guaranteed &le; 0)
+      </div>
+      <p class="sub-note">When the unsafe-state detector fires, the reward is replaced with R<sub>unsafe</sub> &mdash; the worst value any reachable state could plausibly take, given everything the agent has seen so far.</p>
+    </div>
+  </section>
+
+  <!-- 10 SELF-CALIBRATION -->
+  <section id="s7">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-target"/></svg><h2>It gets stricter on its own</h2></div>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 420 240" style="width:420px; height:240px; flex-shrink:0;">
+          <line x1="30" y1="20" x2="30" y2="210" stroke="var(--dash)" stroke-width="2"/>
+          <line x1="30" y1="120" x2="400" y2="120" stroke="var(--dash)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="34" y="14" font-family="Kalam" font-size="11" fill="var(--muted)">+1</text>
+          <text x="34" y="120" font-family="Kalam" font-size="11" fill="var(--muted)">0</text>
+          <text x="30" y="222" font-family="Kalam" font-size="11" fill="var(--muted)">−1</text>
+          <text x="150" y="232" font-family="Kalam" font-size="12" fill="var(--muted)">training step</text>
+          <path d="M30,120 C120,90 250,40 400,25" fill="none" stroke="var(--g)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M30,120 C120,150 250,190 400,208" fill="none" stroke="var(--r)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M30,120 C120,175 250,220 400,232" fill="none" stroke="var(--b)" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 6"/>
+        </svg>
+        <div class="chart-legend">
+          <div><span class="dot" style="background:var(--g);"></span>V<sub>max</sub> &mdash; rises toward the best value seen</div>
+          <div><span class="dot" style="background:var(--r);"></span>V<sub>min</sub> &mdash; falls toward the worst value seen</div>
+          <div><span class="dot" style="background:var(--b);"></span>R<sub>unsafe</sub> = V<sub>min</sub> &minus; V<sub>max</sub> &mdash; grows more negative automatically</div>
+        </div>
+      </div>
+      <p class="sub-note" style="margin-top:1.1rem;">No manual severity tuning: the penalty calibrates itself purely from the agent's own training trajectory.</p>
+    </div>
+  </section>
+
+  <!-- 11 ALGORITHM 1 -->
+  <section id="s8">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-folder"/></svg><h2>Algorithm 1 &mdash; the LLM adaptation</h2></div>
+      <div class="algo-box">for each training step t:
+  x ~ X_train ;  y ~ &pi;<sub>&theta;</sub>(&middot;|x)
+  &delta;<sub>t</sub> &larr; Detoxify(y)             # toxicity score
+  r<sub>t</sub> &larr; 1 &minus; 2&middot;&delta;<sub>t</sub>            # centered reward &isin; [&minus;1,1]
+  V<sub>t</sub> &larr; V<sub>&psi;</sub>(x,y)              # critic value estimate
+  update R<sub>min</sub>,R<sub>max</sub>,V<sub>min</sub>,V<sub>max</sub>
+  if &delta;<sub>t</sub> &gt; &tau;:                   # unsafe state detected
+      r<sub>t</sub> &larr; V<sub>min</sub> &minus; V<sub>max</sub>
+  update &pi;<sub>&theta;</sub>, V<sub>&psi;</sub> via PPO with r<sub>t</sub>, KL anchor &beta;</div>
+      <ul class="dev-list">
+        <li>Reward centered to [&minus;1,1], not raw &minus;&delta; &mdash; gives V<sub>max</sub> a genuine positive anchor (original ROSARL has a dense, bipolar task reward independent of the detector; ours doesn't).</li>
+        <li>Terminal-token value estimate, not averaged across the sequence &mdash; matches the single terminal reward structure.</li>
+        <li>Small KL anchor &beta; retained purely to prevent mode collapse &mdash; not a safety-specific hyperparameter.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 12 TWO-PHASE ARCHITECTURE -->
+  <section id="s9">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-globe"/></svg><h2>Two phases, one mechanism</h2></div>
+      <p class="lede">Only the source of the unsafe-state signal z<sub>t</sub> changes. Algorithm 1 and the PPO loop stay identical.</p>
+      <div class="phase-row">
+        <div class="phase-card" style="--c:var(--b);">
+          <div class="ph-title">Phase 1 &mdash; Detoxify</div>
+          <div class="ph-body">Scores the generated response y, returns toxicity &delta;<sub>t</sub> &isin; [0,1]. Fast, reproducible, no training required. The focus of this proposal's empirical evaluation.</div>
+        </div>
+        <svg class="phase-arrow sketchy"><use href="#ic-arrow-up"/></svg>
+        <div class="phase-card" style="--c:var(--g);">
+          <div class="ph-title">Phase 2 &mdash; activation probe</div>
+          <div class="ph-body">Fires on internal activations before the output token is produced. Targets categories surface-level classifiers miss &mdash; most notably self-harm.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 HYPOTHESES (divider) -->
+  <section id="hypDivider" class="divider">
+    <div class="content">
+      <svg class="fig-big sketchy" style="color:var(--b);"><use href="#robo-roll"/></svg>
+      <div class="mid">
+        <svg class="star-sm" style="color:var(--r);"><use href="#ic-star"/></svg>
+        <div class="dash-line"></div>
+        <h1 class="caveat">Three Hypotheses</h1>
+        <div class="dash-line"></div>
+        <svg class="end-icon" style="color:var(--b);"><use href="#ic-target"/></svg>
+        <div class="sub">Each maps to one dimension of the ablation design: the mechanism, the detector, and the extension to activation-level detection.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14 H1 -->
+  <section id="s10">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-target"/></svg><h2>H1 &mdash; Mechanism</h2></div>
+      <div class="hyp-card" style="--c:var(--y);">
+        <div class="hyp-tag">H1</div>
+        <p>A policy trained with the Minmax penalty produces fewer harmful outputs than one trained with KL divergence alone, measured by harm rate on BeaverTails-Evaluation.</p>
+        <div class="hyp-sub">Expected to persist across base models (GPT-2 small, Qwen 1&ndash;3B) and fine-tuning strategies (full FT, LoRA) &mdash; isolating the mechanism as the source of any benefit, not a model-specific property.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 15 H2 -->
+  <section id="s11">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-circle"/></svg><h2>H2 &mdash; Detector quality bounds coverage</h2></div>
+      <div class="hyp-card" style="--c:var(--r);">
+        <div class="hyp-tag">H2</div>
+        <p>Harm reduction is bounded by the recall of the unsafe-state detector. Categories where Detoxify's signal is weak or absent &mdash; self-harm, most notably &mdash; are not expected to improve, and may regress.</p>
+        <div class="hyp-sub">Algorithm 1 only acts when z<sub>t</sub> = 1. This frames detector quality, not the penalty mechanism itself, as the primary variable modulating coverage &mdash; and it's the most defensible, most interesting hypothesis in this proposal.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 16 H3 -->
+  <section id="s12">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-planet"/></svg><h2>H3 &mdash; Consequence of H2</h2></div>
+      <div class="hyp-card" style="--c:var(--g);">
+        <div class="hyp-tag">H3</div>
+        <p>If H2 holds, replacing Detoxify with an activation-level probe should extend coverage to categories where Detoxify's recall is near zero &mdash; without altering the Minmax mechanism itself.</p>
+        <div class="hyp-sub">The penalty is held fixed; only the source of z<sub>t</sub> varies. Any change in coverage is attributable to the detector, not to a different safety algorithm. Connects directly to Cintas et al. and Rateike et al.'s activation-probing work.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17 THE PLAN (divider) -->
+  <section id="planDivider" class="divider">
+    <div class="content">
+      <svg class="fig-big sketchy" style="color:var(--y);"><use href="#robo-wave"/></svg>
+      <div class="mid">
+        <svg class="star-sm" style="color:var(--g);"><use href="#ic-star"/></svg>
+        <div class="dash-line"></div>
+        <h1 class="caveat">The Plan</h1>
+        <div class="dash-line"></div>
+        <svg class="end-icon" style="color:var(--y);"><use href="#ic-folder"/></svg>
+        <div class="sub">Method, evaluation, ablations, limitations, and the timeline for getting there.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18 DATA & MODELS -->
+  <section id="s13">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-folder"/></svg><h2>Data and models</h2></div>
+      <ul class="item-list">
+        <li><b>BeaverTails</b> &mdash; 27,186-prompt training split; 700-prompt held-out BeaverTails-Evaluation, 14 harm categories, shared with Safe RLHF and HC-RLHF for direct comparison.</li>
+        <li><b>Base models</b> &mdash; GPT-2 small (117M, hardware-feasible) and a Qwen model in the 1&ndash;3B range (cluster-dependent).</li>
+        <li><b>Fine-tuning strategies</b> &mdash; full fine-tuning and LoRA, compared directly in Ablation 3.</li>
+        <li><b>HarmBench</b> &mdash; 500+ adversarial behaviours, used as the out-of-distribution robustness check via attack success rate.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 19 EVALUATION METRICS -->
+  <section id="s14">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-check"/></svg><h2>How we'll know it worked</h2></div>
+      <ul class="item-list">
+        <li><b>Harm rate</b> (all &amp; non-empty) &mdash; the primary metric; non-empty is treated as primary since empty generations trivially register as non-toxic.</li>
+        <li><b>Response diversity</b> &mdash; unique responses / total prompts. Guards against a policy gaming harm rate by converging on a small set of low-information outputs.</li>
+        <li><b>Attack success rate</b> &mdash; HarmBench, the stronger out-of-distribution test of H1.</li>
+        <li><b>Mean reward</b> &mdash; reported for completeness only. KL and Minmax optimise different reward functions, so it's <i>not</i> used for cross-condition comparison.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 20 ABLATIONS -->
+  <section id="s15">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-gear"/></svg><h2>What has to beat what</h2></div>
+      <table class="cost-table">
+        <tr><th>Ablation</th><th>Varies</th><th>Holds fixed</th><th>Isolates</th></tr>
+        <tr><td class="approach">1. Safety mechanism</td><td>KL / Minmax / none</td><td>everything else</td><td>the core H1 comparison</td></tr>
+        <tr><td class="approach">2. Base model</td><td>GPT-2 / Qwen 1&ndash;3B</td><td>Minmax mechanism</td><td>model-specificity</td></tr>
+        <tr><td class="approach">3. Fine-tuning method</td><td>full FT / LoRA</td><td>mechanism, model</td><td>training-approach confound</td></tr>
+        <tr><td class="approach">4. Detector threshold</td><td>&tau; &isin; {.1,.3,.5,.7}</td><td>everything else</td><td>sensitivity to &tau;</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 21 LIMITATIONS -->
+  <section id="s16">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-circle"/></svg><h2>What could go wrong</h2></div>
+      <ul class="item-list">
+        <li><b>Hardware</b> &mdash; GTX 750 Ti, 2GB VRAM, Windows. Scoped honestly to GPT-2 small locally; Qwen and extended runs depend on cluster access.</li>
+        <li><b>Detector-bounded coverage</b> &mdash; Algorithm 1 only acts when the detector fires. Categories Detoxify can't see (self-harm) can't be improved in Phase 1, regardless of RL tuning.</li>
+        <li><b>PPO / critic-dependence</b> &mdash; Algorithm 1 needs a learned critic for V(s<sub>t</sub>). This is a real scope boundary against GRPO-style, critic-free approaches, which are increasingly common in recent RLHF/RLVR work.</li>
+        <li><b>Benchmark coverage</b> &mdash; BeaverTails and HarmBench cover naturalistic and adversarial harm, but not truthfulness or long-horizon manipulation.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 22 TIMELINE & SUCCESS -->
+  <section id="s17">
+    <div class="content">
+      <div class="card-title"><svg class="globe sketchy"><use href="#ic-arrow-up"/></svg><h2>The plan, and how we'll know</h2></div>
+      <table class="cost-table">
+        <tr><th>Phase</th><th>Months</th><th>Status</th></tr>
+        <tr><td class="approach">Proposal &amp; ethics clearance</td><td>1&ndash;2</td><td class="no">In progress</td></tr>
+        <tr><td class="approach">Full Phase 1 GPT-2 runs, ablations</td><td>2&ndash;4</td><td>Planned</td></tr>
+        <tr><td class="approach">LoRA + threshold ablation</td><td>4&ndash;5</td><td>Planned</td></tr>
+        <tr><td class="approach">Qwen scale experiments (cluster)</td><td>5&ndash;7</td><td>Planned</td></tr>
+        <tr><td class="approach">Phase 2 activation probe</td><td>7&ndash;9</td><td>Planned</td></tr>
+        <tr><td class="approach">HarmBench OOD evaluation</td><td>9&ndash;10</td><td>Planned</td></tr>
+      </table>
+      <p class="sub-note" style="margin-top:1rem;"><b style="color:var(--ink); font-family:'Patrick Hand';">Minimum bar:</b> Minmax reduces harm rate vs. the KL baseline, stably, with per-category analysis attributing coverage gaps to detector quality. <b style="color:var(--ink); font-family:'Patrick Hand';">Target:</b> results competitive with published SOTA, plus a working (or clearly null) Phase 2 probe result.</p>
+    </div>
+  </section>
+
+  <!-- 23 CLOSING -->
+  <section id="close">
+    <div class="content" style="text-align:center;">
+      <svg class="fig-big sketchy" style="color:var(--g); margin:0 auto 1.2rem;"><use href="#robo-cheer"/></svg>
+      <h1 class="caveat" style="font-size:clamp(2.6rem,5.6vw,4rem);">Thank you</h1>
+      <p class="lede" style="max-width:720px; margin:1rem auto 0;">A value-function-derived safety signal, requiring no auxiliary model, no extra annotation, and no new safety-specific hyperparameters &mdash; and a two-phase design honest about exactly where its coverage ends and Phase 2 begins.</p>
+      <div class="closing-tag">Wendy Maboa &middot; 2541693 &middot; RAIL Lab, Wits</div>
+    </div>
+  </section>
+
+</div>
+</div>
+
+<script>
+  const spiral = document.getElementById('spiral');
+  function buildHoles(){
+    spiral.innerHTML='';
+    for(let y=20; y<window.innerHeight; y+=48){
+      const hole = document.createElement('div');
+      hole.className='hole';
+      hole.style.top = y+'px';
+      spiral.appendChild(hole);
+    }
+  }
+  buildHoles();
+  window.addEventListener('resize', buildHoles);
+
+  // ===== horizontal slide engine =====
+  const deck = document.getElementById('deck');
+  const viewport = document.getElementById('viewport');
+  const sections = Array.from(document.querySelectorAll('section'));
+  const nav = document.getElementById('botNav');
+  const colors = ['#E0A23A','#DE5B4F','#4C8FC0','#6FA658'];
+  let current = 0;
+
+  sections.forEach((s,i) => {
+    const btn = document.createElement('button');
+    btn.style.color = colors[i % 4];
+    btn.innerHTML = '<svg><use href="#ic-bothead"/></svg>';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); goTo(i); });
+    nav.appendChild(btn);
+  });
+  const navBtns = Array.from(nav.children);
+
+  function updateUI(){
+    navBtns.forEach((b,i) => b.classList.toggle('active', i===current));
+    document.getElementById('slideCount').textContent = (current+1) + ' / ' + sections.length;
+  }
+  function goTo(i){
+    const prev = current;
+    current = Math.max(0, Math.min(sections.length-1, i));
+    deck.style.transform = 'translateX(-' + (current*100) + 'vw)';
+    updateUI();
+    if(current === 0 && prev !== 0) playCast();
+  }
+  window.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' '){ e.preventDefault(); goTo(current+1); }
+    if(e.key === 'ArrowLeft' || e.key === 'PageUp'){ e.preventDefault(); goTo(current-1); }
+    if(e.key === 'Home'){ e.preventDefault(); goTo(0); }
+    if(e.key === 'End'){ e.preventDefault(); goTo(sections.length-1); }
+  });
+  // click anywhere on the slide to advance, like normal slides
+  viewport.addEventListener('click', () => goTo(current+1));
+  updateUI();
+
+  // ===== robots speak on their own, one after another =====
+  function playCast(){
+    const bots = document.querySelectorAll('#cast .bot-wrap');
+    bots.forEach((wrap, i) => {
+      const fig = wrap.querySelector('.fig');
+      const pop = wrap.querySelector('.speech-pop');
+      setTimeout(() => {
+        fig.classList.add('talking');
+        pop.classList.add('show');
+        setTimeout(() => {
+          fig.classList.remove('talking');
+          pop.classList.remove('show');
+        }, 850);
+      }, i * 700);
+    });
+  }
+  playCast();
+</script>
+</body>
+</html>

@@ -1,6 +1,9 @@
 # GRPO vs PPO: Policy Gradient Methods for RLHF
 *Study notes — reinforcement learning fine-tuning of language models*
 
+**Interactive notebook (plan template):** open [`safe-rl-lab-notebook.html`](safe-rl-lab-notebook.html) in a browser.  
+Same hand-drawn notebook style · scroll sections · click stamps, gate questions, plan todos.
+
 ---
 
 ## 1. From Base Model to Aligned Model

@@ -33,11 +33,7 @@ import torch.nn.functional as F
 from optree.typing import PyTreeTypeVar
 from transformers import PreTrainedTokenizerBase
 from transformers.modeling_outputs import ModelOutput
-
-try:
-    from transformers.tokenization_utils_base import BatchEncoding, PaddingStrategy, TruncationStrategy
-except ImportError:
-    from transformers.tokenization_utils import BatchEncoding, PaddingStrategy, TruncationStrategy
+from transformers.tokenization_utils import BatchEncoding, PaddingStrategy, TruncationStrategy
 
 from safe_rlhf.configs.constants import PROMPT_ASSISTANT
 
