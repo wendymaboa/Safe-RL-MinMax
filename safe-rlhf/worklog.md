@@ -344,6 +344,61 @@ parameter partitioning — and neither can be tested without a real distributed 
 
 ---
 
+## Session 8 — Stage 2 closed: template decision made and verified
+
+**Date:** 2026-08-27
+
+**Did:** Settled the two decisions left open at the end of Stage 1, then verified the
+one that could be verified.
+
+**Decision 1 — interval checkpoints → adapter snapshots.** `rl_trainer.py` now writes
+a LoRA adapter into `output_dir/checkpoint-{step}/` at each `--save_interval` when the
+actor is PEFT-wrapped, instead of a DeepSpeed engine checkpoint. Rationale is specific
+to this project: Phase 1's most valuable findings were trajectory-shaped (entropy < 1.0
+by step 95, KL negative across the final 100 steps), but only the *final* policy was ever
+loadable, so "what was the policy actually saying at step 250 vs 750?" could not be
+answered. At ~2 MB per adapter, every snapshot of a full run can be kept and evaluated.
+The cost is optimizer state, which upstream cannot restore anyway (Session 5: there is no
+`load_checkpoint` call anywhere in the framework).
+
+**Decision 2 — prompt template → keep upstream's Alpaca-style, do not switch to ChatML.**
+This reverses the recommendation in the original plan document. The deciding fact is that
+`post_rollout()` re-tokenizes for the reward model with `skip_special_tokens=True`.
+ChatML's structure lives entirely in special tokens (`<|im_start|>`, `<|im_end|>`), so it
+would be stripped before Beaver-7B saw anything, leaving it to score bare `system` /
+`user` / `assistant` words with no delimiters — a format it was never trained on. The
+Alpaca template is plain text and survives intact, and is the format PKU trained the
+reward model on. Given that Phase 1's central finding was that a corrupted reward signal
+invalidates everything downstream, reward-path fidelity outranks actor-path fidelity here.
+
+**Found (`scripts/verify_dataset.py`, 10/10 passed):**
+
+- `PKU-SafeRLHF/train` loads unchanged: **38,641 prompts**.
+- Prompts render exactly as intended, e.g.
+  `'BEGINNING OF CONVERSATION: USER: How can I increase my online presence...? ASSISTANT:'`
+- Exactly one USER turn and one ASSISTANT turn per prompt; prompt terminates at the
+  assistant marker; no doubled BOS.
+- **The decisive check:** after `skip_special_tokens=True`, the decoded string is
+  byte-identical to the original including both markers. This is the empirical form of the
+  argument above — the reward model really will see a well-formed prompt.
+
+**Also found — a silent model modification worth knowing about.** Qwen ships with no
+`bos_token`, and `resize_tokenizer_embedding()` injects `DEFAULT_BOS_TOKEN = '<s>'`
+(a LLaMA convention). Two effects: (a) a `<s>` token is added to Qwen's vocabulary, though
+it appears 0 times in actual sequences, so it is registered but never emitted; (b) because
+a token was added, `resize_token_embeddings()` fires and **shrinks** the embedding matrix
+from 151,936 to 151,666. Those 270 rows are unused alignment padding (151,936 = 128 × 1187,
+sized for tensor cores), so nothing breaks, and under LoRA the embedding is frozen
+regardless. Recorded so it is not mistaken for a bug later.
+
+**Concluded: Stage 2 is complete.** Template locked, dataset path verified, no code change
+required for the template itself. **Conditional to revisit:** if Stage 4's probe shows the
+Beaver reward model behaving badly and we fall back to training our own Qwen RM, this
+decision flips — a self-trained RM would be trained on whatever format we choose, making
+ChatML correct and letting the actor be on-distribution too.
+
+---
+
 ## Open tasks
 
 **Blocking the first real run:**
@@ -354,14 +409,15 @@ parameter partitioning — and neither can be tested without a real distributed 
 - [x] Run `scripts/verify_lora.py` on the cluster. **Done (Session 7): 17/18 passed.**
       The `score_head` assertion — predicted as most likely to fail — passed. The single
       failure was a bug in the test's use of PEFT internals, since fixed.
-- [ ] **Adapter save / resume is not implemented.** Upstream calls `save_checkpoint` /
-      `save_pretrained` on the actor expecting a plain HF model; with a `PeftModel` this
-      either saves the wrong object or writes a full merged checkpoint instead of a small
-      adapter. This fails *after* a long run rather than at startup — the worst time.
-- [ ] Decide the prompt template: upstream's Alpaca-style `configs/constants.py` prompt
-      vs Qwen's native ChatML. Qwen2.5-Instruct was tuned on ChatML, so keeping Alpaca
-      framing imposes avoidable distribution shift, but switching means editing a
-      constants file and deviating further from upstream.
+- [x] **Adapter saving implemented** (Sessions 5 and 8): `TrainerBase.save()` writes an
+      adapter for the final model, and `save_interval` writes per-step adapter snapshots.
+      Both gather ZeRO-3 shards for the trainable subset before writing. **Still has no
+      runtime coverage** — needs the Stage 3 smoke run to exercise it.
+- [ ] **Resume is still not implemented** and does not exist upstream either. A run killed
+      by load shedding restarts from zero. Adapter snapshots make this survivable
+      (restart from the latest adapter, losing optimizer state) but there is no code for it.
+- [x] Prompt template decided and verified (Session 8): **keep upstream Alpaca-style**.
+      Reverses the plan document's recommendation; see Session 8 for the reasoning.
 
 **Before trusting any result:**
 
