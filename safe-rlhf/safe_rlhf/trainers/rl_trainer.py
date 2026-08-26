@@ -28,6 +28,7 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
+from peft import LoraConfig, TaskType
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
@@ -54,6 +55,29 @@ from safe_rlhf.utils import (
 )
 
 
+class AdapterDisabledReference:
+    """Reference policy backed by the actor's own frozen base weights.
+
+    LoRA leaves the pre-trained weights untouched and trains only the adapters, so
+    the reference policy is exactly the actor with its adapters switched off. Wrapping
+    that as a callable keeps `self.actor_reference_model(...)` working unchanged in
+    every algorithm trainer while saving a full extra copy of the model in memory.
+    """
+
+    def __init__(self, actor_engine: deepspeed.DeepSpeedEngine) -> None:
+        self.actor_engine = actor_engine
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        with self.actor_engine.module.disable_adapter():
+            return self.actor_engine(*args, **kwargs)
+
+    def eval(self) -> AdapterDisabledReference:
+        return self
+
+    def train(self, mode: bool = True) -> AdapterDisabledReference:  # noqa: ARG002
+        return self
+
+
 class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
     """Trainer base class for RL training.
 
@@ -67,7 +91,7 @@ class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
     TRAINING_TYPE: ClassVar[str] = 'rl'
 
     actor_model: deepspeed.DeepSpeedEngine
-    actor_reference_model: deepspeed.DeepSpeedEngine
+    actor_reference_model: deepspeed.DeepSpeedEngine | AdapterDisabledReference
     reward_model: deepspeed.DeepSpeedEngine
     reward_critic_model: deepspeed.DeepSpeedEngine
 
@@ -132,20 +156,46 @@ class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
         ):
             self.dsechf_eval = HfDeepSpeedConfig(self.ds_eval_config)
 
+        actor_lora_config = critic_lora_config = None
+        if getattr(self.args, 'use_lora', False):
+            actor_lora_config = LoraConfig(
+                r=self.args.lora_r,
+                lora_alpha=self.args.lora_alpha,
+                lora_dropout=self.args.lora_dropout,
+                target_modules=self.args.lora_target_modules,
+                task_type=TaskType.CAUSAL_LM,
+            )
+            # The critic's score head is randomly initialized and must stay trainable;
+            # `get_peft_model` would otherwise freeze it along with the rest of the base model.
+            critic_lora_config = LoraConfig(
+                r=self.args.lora_r,
+                lora_alpha=self.args.lora_alpha,
+                lora_dropout=self.args.lora_dropout,
+                target_modules=self.args.lora_target_modules,
+                modules_to_save=['score_head'],
+            )
+
         self.actor_model, self.tokenizer = load_pretrained_models(
             self.args.actor_model_name_or_path,
             model_max_length=self.args.max_length,
             padding_side='left',
             auto_model_type=AutoModelForCausalLM,
             trust_remote_code=self.args.trust_remote_code,
+            lora_config=actor_lora_config,
         )
-        self.actor_reference_model, _ = load_pretrained_models(
-            self.args.actor_model_name_or_path,
-            model_max_length=self.args.max_length,
-            padding_side='left',
-            auto_model_type=AutoModelForCausalLM,
-            trust_remote_code=self.args.trust_remote_code,
-        )
+        # With LoRA the pre-trained weights are frozen and unmodified, so a second
+        # copy would be byte-identical to the actor's base. Defer to a lightweight
+        # proxy built in `init_engines()` instead of loading the model twice.
+        if actor_lora_config is not None:
+            self.actor_reference_model = None
+        else:
+            self.actor_reference_model, _ = load_pretrained_models(
+                self.args.actor_model_name_or_path,
+                model_max_length=self.args.max_length,
+                padding_side='left',
+                auto_model_type=AutoModelForCausalLM,
+                trust_remote_code=self.args.trust_remote_code,
+            )
         self.reward_model, self.reward_tokenizer = load_pretrained_models(
             self.args.reward_model_name_or_path,
             model_max_length=self.args.max_length,
@@ -171,6 +221,7 @@ class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
                 'score_type': 'critic',
                 'do_normalize': False,
             },
+            lora_config=critic_lora_config,
         )
         self.reward_critic_model.set_normalize(False)
 
@@ -328,11 +379,15 @@ class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
             ds_config=actor_ds_config,
         )
 
-        self.actor_reference_model = self._init_eval_engine(
-            model=self.actor_reference_model,
-            ds_config=self.ds_eval_config,
-        )
-        self.actor_reference_model.eval()
+        if self.actor_reference_model is None:
+            # LoRA: reuse the actor's frozen base weights with adapters disabled.
+            self.actor_reference_model = AdapterDisabledReference(self.actor_model)
+        else:
+            self.actor_reference_model = self._init_eval_engine(
+                model=self.actor_reference_model,
+                ds_config=self.ds_eval_config,
+            )
+            self.actor_reference_model.eval()
 
         self.reward_critic_model = self._init_train_engine(
             model=self.reward_critic_model,
