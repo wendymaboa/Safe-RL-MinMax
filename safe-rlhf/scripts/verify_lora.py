@@ -130,16 +130,14 @@ def check_reference_proxy(actor, prompt) -> None:
         'proxy output differs from the adapter-enabled actor',
         not torch.allclose(via_proxy, with_adapters, atol=1e-5),
     )
-    check('adapters are re-enabled after the proxy call', not _adapters_disabled(actor))
-    check('eval() is a no-op returning self', reference.eval() is reference)
-
-
-def _adapters_disabled(model: torch.nn.Module) -> bool:
-    """True if any LoRA layer is still in the disabled state."""
-    return any(
-        getattr(module, 'disable_adapters', False)
-        for module in model.modules()
+    # `with_adapters` was computed *after* the proxy call, so if it still matches the
+    # adapter-disabled output the proxy leaked its disabled state. Checked behaviourally
+    # rather than by introspecting PEFT attributes, whose names are not a stable API.
+    check(
+        'adapters are re-enabled after the proxy call',
+        not torch.allclose(with_adapters, direct, atol=1e-5),
     )
+    check('eval() is a no-op returning self', reference.eval() is reference)
 
 
 def check_disable_adapter(actor, prompt) -> None:
