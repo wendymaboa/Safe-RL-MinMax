@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import abc
 import argparse
+import contextlib
 import os
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from typing import Any, ClassVar
 
 import deepspeed
 import torch.distributed as dist
+from peft import PeftModel
 from transformers import CONFIG_NAME, WEIGHTS_NAME, PreTrainedModel, PreTrainedTokenizerBase
 
 from safe_rlhf.logger import Logger
@@ -123,6 +125,25 @@ class TrainerBase(metaclass=abc.ABCMeta):
         if is_main_process():
             model_to_save.config.to_json_file(output_config_file)
             self.tokenizer.save_pretrained(self.args.output_dir)
+
+        # A PEFT-wrapped model must be saved as an adapter, not as full weights.
+        # `save_pretrained` on a PeftModel writes adapter_model.safetensors plus
+        # adapter_config.json (a few MB) rather than a multi-GB checkpoint, and is the
+        # format `PeftModel.from_pretrained` expects when reloading.
+        if isinstance(model_to_save, PeftModel):
+            self.logger.print('Saving LoRA adapter...')
+            trainable = [p for p in model_to_save.parameters() if p.requires_grad]
+            gather = (
+                deepspeed.zero.GatheredParameters(trainable, modifier_rank=0)
+                if ds_config['zero_optimization']['stage'] == 3
+                else contextlib.nullcontext()
+            )
+            with gather:
+                if is_main_process():
+                    model_to_save.save_pretrained(self.args.output_dir)
+            dist.barrier()
+            self.logger.print('Model saved!')
+            return
 
         if self.args.save_16bit:
             self.logger.print('Saving 16-bit model...')
