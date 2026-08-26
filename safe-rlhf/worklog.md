@@ -241,14 +241,119 @@ The script perturbs `B` first so the test means something.
 
 ---
 
+## Session 6 — The MKL wall, and why the "standard fix" was unsolvable
+
+**Date:** 2026-08-26 → 2026-08-27
+
+**Did:** Tried to apply the two pins from Session 3 (`mkl=2024.0.0`,
+`transformers<4.47`) to the built env.
+
+**Found:** Three failures in sequence, each with a distinct cause.
+
+1. **`PackagesNotFoundInChannelsError: cuda-toolkit11.8.*.*`.** `conda env create`
+   built the env from the recipe's five channels, but a subsequent `conda install`
+   only searches whatever is in `.condarc` — which is `defaults` alone. The solver
+   then could not re-satisfy the already-installed `cuda-toolkit 11.8` because that
+   package lives in `nvidia/label/cuda-11.8.0`.
+2. **Solver hang.** Re-running with explicit channels made the solve run for 45+
+   minutes without terminating, on both the classic solver and (nominally) libmamba.
+3. **Root cause, found via `conda list | grep -i mkl`:** the env has `mkl 2025.0.0`,
+   and also `blas 1.0 mkl`, `mkl-service`, `mkl_fft`, `mkl_random` — i.e. **numpy is
+   built against MKL**. Downgrading `mkl` to 2024.0.0 therefore requires simultaneously
+   re-solving numpy, blas and three MKL bindings against a pinned CUDA toolkit. That is
+   not a slow solve; it is a combinatorial problem that does not finish.
+
+**Concluded:** The fix cited in every bug report for `undefined symbol: iJIT_NotifyEvent`
+— downgrade MKL — is **not applicable to this environment**. Sidestepped it instead:
+replaced conda's PyTorch with a pip cu118 wheel, which bundles its own math libraries and
+does not link conda's MKL at all. MKL 2025 stays in place for numpy; torch stops caring.
+
+    pip install --force-reinstall --no-deps torch==2.5.1 \
+        --index-url https://download.pytorch.org/whl/cu118
+
+`--no-deps` then caused a second, smaller failure — `libcudnn.so.9: cannot open shared
+object file` — because torch 2.5.1 needs cuDNN 9 and the CUDA runtime packages had been
+skipped. Re-running the same command *without* `--no-deps` installed only the missing
+`nvidia-*` wheels (pip saw `2.5.1+cu118` as already satisfying `==2.5.1`, so no
+re-download).
+
+**Stage 0 gate passed:** `torch 2.5.1+cu118`, `transformers 4.46.3` (inside the
+`<4.47` pin), `peft 0.20.0`, `deepspeed` imports cleanly.
+
+**Process lesson, and the expensive one:** several days were lost debugging a package
+install *through the batch queue* — submit, wait hours, read one error line, repeat.
+Environment work belongs in an interactive shell where the feedback loop is seconds.
+Only jobs that genuinely need a GPU should be queued.
+
+---
+
+## Session 7 — LoRA plumbing verified at runtime
+
+**Date:** 2026-08-27
+
+**Did:** Ran `scripts/verify_lora.py` on the `batch` partition against
+`Qwen/Qwen2.5-0.5B-Instruct`.
+
+**Found: 17/18 checks passed.** The substantive results:
+
+| Check | Result |
+|---|---|
+| Actor wraps as `PeftModelForCausalLM` | pass |
+| Trainable fraction | **540,672 / 494,330,624 = 0.109%** |
+| Adapters injected into | **`['q_proj', 'v_proj']`** |
+| `generate()` through the wrapper | pass |
+| `disable_adapter()` restores base output | pass |
+| **`score_head` is trainable** | **pass — 2 of 4 tensors** |
+| Critic forward returns scores | pass, shape (1, 4, 1) |
+| No-LoRA control untouched | pass, 100% trainable |
+
+Three numbers corroborate each other and are worth recording:
+
+- **48 `lora_B` tensors** = 24 layers × 2 target modules. Qwen2.5-0.5B has 24 layers.
+- **Critic trainable − actor trainable = 541,569 − 540,672 = 897** = `score_head`
+  weight (896, the hidden size) + bias (1). The value head is trainable down to the
+  parameter, confirming `modules_to_save=['score_head']` resolved correctly. This was
+  the highest-risk line in the whole change and it is now verified, not assumed.
+- `['q_proj', 'v_proj']` confirms PEFT v0.20.0's Qwen2 default is the original LoRA
+  paper's narrow choice — query and value only, no `k_proj`, no `o_proj`, no MLP.
+
+**The one failure was a bug in the test, not the code.** The check
+`adapters are re-enabled after the proxy call` used
+`getattr(module, 'disable_adapters', False)` across all modules, which picks up bound
+methods and properties on PEFT wrappers — truthy regardless of actual state. The
+contradiction is visible in the output: `proxy output differs from the adapter-enabled
+actor` passed, and that comparison uses a forward pass taken *after* the proxy call, so
+adapters must have been re-enabled. Replaced the introspection with a behavioural
+comparison of logits. **Lesson: do not assert on a library's internal attribute names;
+assert on observable behaviour.**
+
+**Also found:**
+
+- `batch` partition nodes have GPUs (`cuda: True 1`) — undocumented in the MSS guide.
+- HuggingFace downloads on a `batch` node ran at ~0.3 MB/s (514 MB in 31 minutes) versus
+  7–40 MB/s on the login node. Suspected cause is the `hf-xet` chunked-transfer backend.
+  Workaround: pre-download on the login node, or `export HF_HUB_DISABLE_XET=1`. Relevant
+  for Stage 4, where the reward model is ~14 GB.
+- A benign warning: Qwen's tokenizer vocab (151,665) is smaller than its embedding matrix
+  (151,936). That is normal padding for Qwen, not a misconfiguration.
+
+**Concluded:** **Stage 1 is functionally verified**, except for adapter save/resume,
+which has no runtime coverage yet. The remaining unknowns are DeepSpeed-specific — whether
+a `PeftModel` survives ZeRO wrapping, and whether `AdapterDisabledReference` behaves under
+parameter partitioning — and neither can be tested without a real distributed launch.
+
+---
+
 ## Open tasks
 
 **Blocking the first real run:**
 
-- [ ] Confirm the environment fix job succeeded (`torch.cuda.is_available()`, device
-      count, `tokenization_utils` import) — Session 3 left this unverified.
-- [ ] Run `scripts/verify_lora.py` on the cluster. Expect the `score_head` assertion to be
-      the one that fails, if any does.
+- [x] Confirm the environment imports cleanly. **Done (Session 6):** torch 2.5.1+cu118,
+      transformers 4.46.3, peft 0.20.0, deepspeed. Required replacing conda's torch with a
+      pip cu118 wheel rather than downgrading MKL.
+- [x] Run `scripts/verify_lora.py` on the cluster. **Done (Session 7): 17/18 passed.**
+      The `score_head` assertion — predicted as most likely to fail — passed. The single
+      failure was a bug in the test's use of PEFT internals, since fixed.
 - [ ] **Adapter save / resume is not implemented.** Upstream calls `save_checkpoint` /
       `save_pretrained` on the actor expecting a plain HF model; with a `PeftModel` this
       either saves the wrong object or writes a full merged checkpoint instead of a small
