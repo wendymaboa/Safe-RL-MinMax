@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import abc
 import argparse
+import contextlib
 import copy
 import itertools
+import os
 from typing import Any, ClassVar
 
 import deepspeed
@@ -28,7 +30,7 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
-from peft import LoraConfig, TaskType
+from peft import LoraConfig, PeftModel, TaskType
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
@@ -589,10 +591,33 @@ class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
 
                         if self.global_step % self.args.save_interval == 0:
                             self.logger.print(f'Saving checkpoint at step {self.global_step} ...')
-                            self.actor_model.save_checkpoint(
-                                self.args.output_dir,
-                                tag=self.global_step,
-                            )
+                            actor = self.actor_model.module
+                            if isinstance(actor, PeftModel):
+                                # A LoRA adapter is a few MB, so every interval can be kept
+                                # and evaluated later. Each snapshot goes in its own
+                                # directory so it loads directly with
+                                # `PeftModel.from_pretrained(path)` — unlike a DeepSpeed
+                                # checkpoint, which is multi-GB and which nothing in this
+                                # framework can load back.
+                                snapshot_dir = os.path.join(
+                                    self.args.output_dir,
+                                    f'checkpoint-{self.global_step}',
+                                )
+                                trainable = [p for p in actor.parameters() if p.requires_grad]
+                                gather = (
+                                    deepspeed.zero.GatheredParameters(trainable, modifier_rank=0)
+                                    if self.ds_train_config['zero_optimization']['stage'] == 3
+                                    else contextlib.nullcontext()
+                                )
+                                with gather:
+                                    if is_main_process():
+                                        actor.save_pretrained(snapshot_dir)
+                                dist.barrier()
+                            else:
+                                self.actor_model.save_checkpoint(
+                                    self.args.output_dir,
+                                    tag=self.global_step,
+                                )
                             self.logger.print('Checkpoint saved.')
 
                         if (
