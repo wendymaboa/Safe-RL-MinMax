@@ -23,6 +23,7 @@ from typing import Any, Callable, Literal
 import deepspeed
 import torch
 import torch.nn as nn
+from peft import LoraConfig, get_peft_model
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -161,6 +162,7 @@ def load_pretrained_models(  # pylint: disable=too-many-arguments
     auto_model_kwargs: dict[str, Any] | None = None,
     auto_tokenizer_args: tuple[Any, ...] = (),
     auto_tokenizer_kwargs: dict[str, Any] | None = None,
+    lora_config: LoraConfig | None = None,
 ) -> tuple[PreTrainedModel, PreTrainedTokenizerBase]:
     """Load pre-trained model and tokenizer from a given path.
 
@@ -177,6 +179,8 @@ def load_pretrained_models(  # pylint: disable=too-many-arguments
         trust_remote_code (bool, optional): Whether to trust the remote code. Defaults to False.
         auto_model_type (type[AutoModelForCausalLM] or type[AutoModelForScore], optional): The type
             of the model to load. Defaults to AutoModelForCausalLM.
+        lora_config (LoraConfig or None, optional): If given, wrap the model with LoRA adapters
+            and freeze the base weights. Defaults to None (full model, no adapters).
     """
     model_name_or_path = os.path.expanduser(model_name_or_path)
     cache_dir = os.path.expanduser(cache_dir) if cache_dir is not None else None
@@ -205,4 +209,6 @@ def load_pretrained_models(  # pylint: disable=too-many-arguments
         **auto_tokenizer_kwargs,
     )
     resize_tokenizer_embedding(tokenizer=tokenizer, model=model)
+    if lora_config is not None:
+        model = get_peft_model(model, lora_config)
     return model, tokenizer
