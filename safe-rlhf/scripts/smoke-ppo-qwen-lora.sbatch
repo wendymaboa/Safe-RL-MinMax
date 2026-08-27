@@ -73,6 +73,7 @@ deepspeed --num_gpus 1 --master_port 29531 \
 	--critic_lr_warmup_ratio 0.03 \
 	--normalize_reward False \
 	--seed 42 \
+	--use_torch_adam True \
 	--kl_coeff 0.02 \
 	--clip_range_ratio 0.2 \
 	--clip_range_score 50.0 \
