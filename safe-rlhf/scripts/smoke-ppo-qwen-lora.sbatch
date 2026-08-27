@@ -32,16 +32,18 @@ export HF_HUB_DISABLE_XET=1                      # xet backend is very slow on c
 export TRITON_CACHE_DIR="/tmp/${USER}/triton"    # node-local; NFS makes DeepSpeed hang on exit
 mkdir -p "$TRITON_CACHE_DIR"
 
-# Compute nodes fetch from HuggingFace at ~0.3 MB/s, and a stalled model download hangs
-# the job silently until the time limit. TRANSFORMERS_OFFLINE makes any uncached *model*
-# fail immediately with a clear error instead; the fix is always to pre-fetch it on the
-# login node with `huggingface-cli download <repo> --include ...`.
+# Compute nodes fetch from HuggingFace at ~0.3 MB/s, and a stalled request hangs the job
+# silently until the time limit. Offline mode is NOT usable here: TRANSFORMERS_OFFLINE is
+# aliased to HF_HUB_OFFLINE in modern transformers, and `datasets` resolves a dataset
+# module through the Hub API before reading its cache, with no offline fallback — so any
+# offline flag breaks dataset loading outright.
 #
-# Note: HF_HUB_OFFLINE is deliberately NOT set. The `datasets` library resolves a dataset
-# module through the Hub API before reading its cache and has no offline fallback for that
-# path, so a global offline flag breaks dataset loading entirely. That call is a small API
-# request rather than a download, so it is not a meaningful hang risk.
-export TRANSFORMERS_OFFLINE=1
+# Instead, keep the network available but bound it. A stalled connection now raises after
+# seconds rather than blocking for the whole job. All models must still be pre-fetched on
+# the login node (`huggingface-cli download <repo> --include ...`); these timeouts are a
+# safety net, not a substitute.
+export HF_HUB_ETAG_TIMEOUT=15
+export HF_HUB_DOWNLOAD_TIMEOUT=30
 
 REPO_DIR="$HOME/Safe-RL-MinMax/safe-rlhf"
 cd "$REPO_DIR"
