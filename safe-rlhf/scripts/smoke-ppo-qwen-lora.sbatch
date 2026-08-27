@@ -32,6 +32,13 @@ export HF_HUB_DISABLE_XET=1                      # xet backend is very slow on c
 export TRITON_CACHE_DIR="/tmp/${USER}/triton"    # node-local; NFS makes DeepSpeed hang on exit
 mkdir -p "$TRITON_CACHE_DIR"
 
+# Compute nodes fetch from HuggingFace at ~0.3 MB/s and a stalled request hangs the job
+# silently for as long as the time limit allows. Refuse to touch the network at all:
+# anything not already cached fails immediately with a clear error, and the fix is always
+# to pre-fetch it on the login node with `huggingface-cli download <repo>`.
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+
 REPO_DIR="$HOME/Safe-RL-MinMax/safe-rlhf"
 cd "$REPO_DIR"
 export PYTHONPATH="$REPO_DIR${PYTHONPATH:+:$PYTHONPATH}"
