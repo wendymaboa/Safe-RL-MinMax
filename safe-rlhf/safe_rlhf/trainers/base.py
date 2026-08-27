@@ -140,7 +140,14 @@ class TrainerBase(metaclass=abc.ABCMeta):
             )
             with gather:
                 if is_main_process():
-                    model_to_save.save_pretrained(self.args.output_dir)
+                    # save_embedding_layers=False: resize_tokenizer_embedding() changes the
+                    # vocab size, which PEFT's 'auto' setting reads as "embeddings were
+                    # trained" and saves in full. They are frozen under LoRA and the resize
+                    # is deterministic on load, so saving them adds ~518 MB for nothing.
+                    model_to_save.save_pretrained(
+                        self.args.output_dir,
+                        save_embedding_layers=False,
+                    )
             dist.barrier()
             self.logger.print('Model saved!')
             return

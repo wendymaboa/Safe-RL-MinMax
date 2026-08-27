@@ -617,7 +617,16 @@ class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
                                 )
                                 with gather:
                                     if is_main_process():
-                                        actor.save_pretrained(snapshot_dir)
+                                        # save_embedding_layers='auto' would also dump the
+                                        # full embedding matrix, because resize_tokenizer_
+                                        # embedding() changes the vocab size and PEFT reads
+                                        # that as "embeddings were trained". They are frozen
+                                        # under LoRA, and the resize is deterministic on
+                                        # load, so ~518 MB per snapshot would be dead weight.
+                                        actor.save_pretrained(
+                                            snapshot_dir,
+                                            save_embedding_layers=False,
+                                        )
                                 dist.barrier()
                             else:
                                 self.actor_model.save_checkpoint(
