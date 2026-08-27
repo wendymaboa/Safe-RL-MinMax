@@ -399,6 +399,64 @@ ChatML correct and letting the actor be on-distribution too.
 
 ---
 
+## Session 9 — Stage 3 attempt 1: the cluster cannot JIT-compile CUDA extensions
+
+**Date:** 2026-08-27
+
+**Did:** First real `deepspeed --module safe_rlhf.algorithms.ppo` launch
+(`scripts/smoke-ppo-qwen-lora.sbatch`). Deliberately tiny: Qwen2.5-0.5B actor and
+critic, `gpt2` as a stand-in reward model, `max_length 128`, batch size 2,
+~19 steps via a dataset proportion, `save_interval 5`.
+
+**Note on the reward-model choice.** The first draft of this smoke test used a Qwen
+stand-in reward model. That was wrong, and Wendy caught it: `rl_trainer.py` collapses
+`reward_tokenizer` onto `tokenizer` when `is_same_tokenizer()` is true, and
+`post_rollout()` only calls `batch_retokenize()` when they differ. A Qwen reward model
+would therefore have **skipped the re-tokenization branch entirely** — testing a code
+path we will never use. `gpt2` was chosen precisely because its tokenizer differs from
+Qwen's, forcing the same bridge the real Beaver-7B reward model will take, at 124M
+parameters instead of 7B.
+
+**Found:** The run failed during DeepSpeed's JIT compilation of `FusedAdam`:
+
+    error: #error -- unsupported GNU version! gcc versions later than 11 are not supported!
+
+`gcc --version` on the nodes reports **15.2.0**, and `/usr/bin/` has only `gcc-15`.
+CUDA 11.8's `nvcc` supports gcc ≤ 11. There is no older system compiler available.
+
+**This is not specific to `FusedAdam`.** It is a property of the environment: with
+CUDA 11.8 and gcc 15, **no CUDA extension can be JIT-compiled on this cluster**.
+Anything DeepSpeed tries to build at runtime will fail the same way. `DeepSpeedCPUAdam`
+is not an escape — it compiles too.
+
+Worth noting what *did* work before the failure: `load_pretrained_models()` with LoRA
+completed under a real distributed launch, and DeepSpeed accepted a `PeftModel` through
+model initialisation. Also, build step `[2/3]` — plain `c++` compiling the frontend —
+**succeeded**. gcc 15 handles the C++ fine; only `nvcc` refuses. So avoiding CUDA kernels
+is sufficient, and avoiding C++ entirely is not necessary.
+
+**Concluded:** Added `--use_torch_adam` (default `False`, so upstream behaviour is
+unchanged) which selects `torch.optim.AdamW` instead of either DeepSpeed Adam. It takes
+the same parameter groups and the same `ADAM_BETAS`, and `deepspeed.initialize()` accepts
+any `torch.optim.Optimizer`. The only cost is kernel fusion speed, which is irrelevant
+against not running at all. Checked *before* the offload branch so it short-circuits both
+compiled paths.
+
+**Options considered and rejected:**
+
+- `NVCC_PREPEND_FLAGS=-allow-unsupported-compiler` — a four-major-version gap between
+  gcc 11 and gcc 15 means the compile would very likely fail anyway on libstdc++ changes.
+- `export CC=/usr/bin/gcc-11` — no gcc 11 exists on the nodes.
+- `conda install -c conda-forge gxx_linux-64=11` — would probably work, but Session 6
+  showed conda solves in this environment are unreliable and can hang indefinitely.
+
+**Carry forward — this will resurface.** If a future stage needs a DeepSpeed op with no
+pure-torch fallback (some ZeRO-3 paths, fused kernels, sparse attention), `--use_torch_adam`
+will not save us and the real fix becomes installing gcc 11 into the conda env. Better to
+know that now than to discover it while queuing for biggpu at Stage 5.
+
+---
+
 ## Open tasks
 
 **Blocking the first real run:**
@@ -428,6 +486,22 @@ ChatML correct and letting the actor be on-distribution too.
       obviously-helpful text *before* spending biggpu hours on it.
 - [ ] Assert the critic's `score_head` has `requires_grad=True` after wrapping, as an
       in-run check and not just a one-off test.
+
+**Environment constraints to design around (Session 9):**
+
+- [ ] **No CUDA extension can be JIT-compiled on mscluster** (CUDA 11.8 + gcc 15, no older
+      host compiler present). Currently sidestepped for the optimizer via
+      `--use_torch_adam`. If a later stage needs a DeepSpeed op with no pure-torch
+      fallback, the fix is `conda install -c conda-forge gxx_linux-64=11` — schedule that
+      deliberately rather than discovering it mid-run.
+- [ ] `/datasets/wmaboa` is confirmed writable from compute nodes; the HuggingFace cache
+      is now symlinked there (`~/.cache/huggingface -> /datasets/wmaboa/hf`) to keep the
+      14 GB reward model out of the 50 GB home quota.
+- [ ] HuggingFace downloads on compute nodes run ~0.3 MB/s versus 7–40 MB/s on the login
+      node. Pre-download on the login node, and set `HF_HUB_DISABLE_XET=1`.
+- [ ] `batch` partition nodes have an **RTX 3060 (12 GB)** and there are usually ~88 idle.
+      That is the development resource; `bigbatch` and `biggpu` are routinely fully
+      allocated. 12 GB fits a 0.5B or 1.5B actor+critic, but not the 7B reward model.
 
 **Deferred by decision, not oversight:**
 
