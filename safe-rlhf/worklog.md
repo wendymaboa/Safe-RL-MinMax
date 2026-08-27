@@ -457,6 +457,84 @@ know that now than to discover it while queuing for biggpu at Stage 5.
 
 ---
 
+## Session 10 — Stage 3 closed: the PPO loop runs end to end with LoRA
+
+**Date:** 2026-08-27
+
+**Did:** Got `scripts/smoke-ppo-qwen-lora.sbatch` running to completion. Qwen2.5-0.5B
+actor and critic, `gpt2` reward model, 37 PPO steps, `save_interval 5`.
+Final run: **COMPLETED, exit 0:0, 3 minutes.**
+
+**Found — four failures on the way there, each one layer deeper:**
+
+1. **`nvcc` vs gcc 15** (Session 9) — fixed with `--use_torch_adam`.
+2. **A 30-minute silent hang.** The process sat in `poll_schedule_timeout` at 1.9% CPU
+   with a CUDA context but 0% GPU. Cause: `gpt2` was never pre-fetched, so the job tried
+   to download it from a compute node while the 14 GB Beaver download saturated the same
+   link. `py-spy` could not attach (kernel ptrace restrictions), so this was diagnosed
+   from `ps -o stat,wchan` rather than a stack trace.
+3. **Offline mode is unusable here.** Setting `HF_HUB_OFFLINE=1` to make missing models
+   fail fast worked — it cut a 35-minute hang to a 55-second error — but it also broke
+   dataset loading: `datasets` resolves a dataset module through the Hub API *before*
+   reading its cache and has no offline fallback. Scoping it to `TRANSFORMERS_OFFLINE=1`
+   did not help either, because modern transformers aliases that to `HF_HUB_OFFLINE`.
+   Settled on bounded timeouts instead (`HF_HUB_ETAG_TIMEOUT=15`,
+   `HF_HUB_DOWNLOAD_TIMEOUT=30`), which cap a stall without disabling the Hub.
+4. **Adapter snapshots were 520 MB each, not ~1 MB.** Cause: `resize_tokenizer_embedding()`
+   changes the vocab size (Session 8), and PEFT's default `save_embedding_layers='auto'`
+   reads a vocab mismatch as "embeddings were trained" and saves the whole matrix —
+   151,666 x 896 in fp32 = 518 MB. Fixed with `save_embedding_layers=False` at both save
+   sites. The embedding is frozen under LoRA and the resize is deterministic on load, so
+   nothing is lost. **Snapshots dropped to 1.1 MB**, which is exactly
+   540,672 trainable params x 2 bytes (bf16).
+
+**Found — the evidence that the LoRA design is correct, from a real run:**
+
+| Metric | Observed | What it proves |
+|---|---|---|
+| `train/kl_divergence` | **first = 0.0000**, then ±0.5 | `AdapterDisabledReference` works |
+| `train/reward_value` | −0.02 → **+2.94** | `modules_to_save=['score_head']` works |
+| `train/reward` | 2.4609 → 2.5703 | the Qwen→GPT-2 tokenizer bridge delivers real text |
+| snapshot size | **1.1 MB** | only adapter weights are saved |
+
+The KL result is the strongest of these and worth keeping for the write-up. LoRA
+initialises its `B` matrices to **zero**, so at step 0 the actor *is* the base model and
+KL against the reference is exactly 0.0000. It then grows as the adapters train. Had the
+proxy been returning the actor's adapter-enabled output instead of the adapter-disabled
+one, KL would have stayed pinned at zero for the entire run — a failure that produces no
+error and no warning. The observed trajectory rules it out directly.
+
+Similarly, `reward_value` climbing from its random initialisation toward the true reward
+level (~2.5) is the critic's value head actually learning. Frozen, it would have stayed
+at its random value — the silent failure flagged in Session 5 as the highest-risk line in
+the change.
+
+**Two non-issues, recorded so they are not re-investigated:**
+
+- `actor_lr` / `reward_critic_lr` printing `+0.0000` was a formatting artefact in
+  `scripts/dump_tb.py` (1e-5 in fixed-point at 4 dp). Switched to `%g`.
+- Negative KL values (min −0.63) are Monte-Carlo estimator noise over a 2-sequence batch,
+  not the numerical breakdown seen in Phase 1 — there, the diagnostic signal was KL
+  reaching −41.
+
+**One genuine oddity, unresolved:** `mean_generated_length` equals
+`max_generated_length` at every step. Plausible if left-padding gives both sequences in a
+2-sample batch identical mask sums, but worth rechecking at larger batch sizes before
+trusting either number.
+
+**Concluded: Stage 3 passes.** All four unknowns confirmed positive — DeepSpeed accepts a
+`PeftModel`, the reference proxy works under a live engine, the re-tokenization bridge
+fires, and adapter snapshots are written at the right size. Also added
+`scripts/dump_tb.py`, since `--log_type tensorboard` means metrics never reach the SLURM
+`.out` file and this is how trajectories get inspected over SSH.
+
+**Process note:** iteration time is now ~3 minutes per attempt. The four failures above
+each surfaced in under a minute once offline mode / timeouts were in place. Compare with
+Session 6, where single conda operations ran 45 minutes without terminating. Fast failure
+is what made this stage tractable.
+
+---
+
 ## Open tasks
 
 **Blocking the first real run:**
@@ -467,10 +545,10 @@ know that now than to discover it while queuing for biggpu at Stage 5.
 - [x] Run `scripts/verify_lora.py` on the cluster. **Done (Session 7): 17/18 passed.**
       The `score_head` assertion — predicted as most likely to fail — passed. The single
       failure was a bug in the test's use of PEFT internals, since fixed.
-- [x] **Adapter saving implemented** (Sessions 5 and 8): `TrainerBase.save()` writes an
-      adapter for the final model, and `save_interval` writes per-step adapter snapshots.
-      Both gather ZeRO-3 shards for the trainable subset before writing. **Still has no
-      runtime coverage** — needs the Stage 3 smoke run to exercise it.
+- [x] **Adapter saving implemented and verified** (Sessions 5, 8, 10): `TrainerBase.save()`
+      writes an adapter for the final model, and `save_interval` writes per-step adapter
+      snapshots at **1.1 MB each**. ZeRO-3 shard gathering is coded but still untested —
+      the smoke run used ZeRO-2, where the gather is a no-op.
 - [ ] **Resume is still not implemented** and does not exist upstream either. A run killed
       by load shedding restarts from zero. Adapter snapshots make this survivable
       (restart from the latest adapter, losing optimizer state) but there is no code for it.
