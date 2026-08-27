@@ -60,10 +60,12 @@ def main() -> None:
                     print(f'    step {e.step:>6}  {e.value:+.6f}')
             else:
                 if finite:
+                    # %g, not %f: learning rates like 1e-5 round to 0.0000 in fixed point
+                    # and look like a bug when they are perfectly correct.
                     summary = (
                         f'n={len(values):<4} '
-                        f'first={values[0]:+.4f}  last={values[-1]:+.4f}  '
-                        f'min={min(finite):+.4f}  max={max(finite):+.4f}'
+                        f'first={values[0]:+.5g}  last={values[-1]:+.5g}  '
+                        f'min={min(finite):+.5g}  max={max(finite):+.5g}'
                     )
                 else:
                     summary = f'n={len(values):<4} (no finite values)'
