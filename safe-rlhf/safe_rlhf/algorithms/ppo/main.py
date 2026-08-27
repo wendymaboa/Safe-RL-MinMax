@@ -296,6 +296,13 @@ def parse_arguments() -> argparse.Namespace:
         help='A seed for reproducible training.',
     )
     training_parser.add_argument(
+        '--use_torch_adam',
+        type=str2bool,
+        default=False,
+        help="Use torch's AdamW instead of DeepSpeed's JIT-compiled FusedAdam. Needed where "
+        'nvcc rejects the host compiler (CUDA 11.8 supports gcc <= 11).',
+    )
+    training_parser.add_argument(
         '--fp16',
         type=str2bool,
         default=False,

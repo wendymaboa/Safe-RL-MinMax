@@ -327,7 +327,13 @@ class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
         ds_config: dict[str, Any],
     ) -> deepspeed.DeepSpeedEngine:
         optimizer_grouped_parameters = get_optimizer_grouped_parameters(model, weight_decay)
-        if (
+        if getattr(self.args, 'use_torch_adam', False):
+            # Both DeepSpeedCPUAdam and FusedAdam are JIT-compiled CUDA kernels. CUDA 11.8's
+            # nvcc refuses host compilers newer than gcc 11, and mscluster ships gcc 15, so
+            # that compile cannot succeed there. torch's AdamW takes the same parameter
+            # groups, is accepted by deepspeed.initialize(), and needs no compilation.
+            optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=lr, betas=ADAM_BETAS)
+        elif (
             ds_config['zero_optimization'].get('offload_optimizer', {}).get('device', 'none')
             != 'none'
         ):
