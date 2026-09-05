@@ -27,6 +27,7 @@ GPU, so this defaults to CPU, which is fine for a few dozen short sequences:
 from __future__ import annotations
 
 import argparse
+import time
 
 import torch
 
@@ -122,12 +123,21 @@ def score(model, tokenizer, prompt: str, response: str, device: str) -> float:
 def main() -> None:
     parser = argparse.ArgumentParser(description='Probe a reward model for sane ordering.')
     parser.add_argument('--model', type=str, default='PKU-Alignment/beaver-7b-unified-reward')
-    parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'cuda'])
+    parser.add_argument('--device', type=str, default='auto', choices=['auto', 'cpu', 'cuda'])
     parser.add_argument('--dtype', type=str, default='bfloat16', choices=['bfloat16', 'float32'])
     args = parser.parse_args()
 
+    # bfloat16 on CPU is pathologically slow — PyTorch's CPU kernels are tuned for
+    # float32 and bf16 often falls back to unoptimised paths. A single 7B forward pass
+    # can take minutes. Prefer the GPU whenever one is visible.
+    if args.device == 'auto':
+        args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f'device auto-detected: {args.device}')
+    if args.device == 'cpu' and args.dtype == 'bfloat16':
+        print('WARNING: bfloat16 on CPU is very slow. Expect minutes per forward pass.')
+
     dtype = torch.bfloat16 if args.dtype == 'bfloat16' else torch.float32
-    print(f'Loading {args.model} on {args.device} ({args.dtype}) ...')
+    print(f'Loading {args.model} on {args.device} ({args.dtype}) ...', flush=True)
     model, tokenizer = load_pretrained_models(
         args.model,
         model_max_length=512,
@@ -137,27 +147,29 @@ def main() -> None:
         auto_model_kwargs={'score_type': 'reward', 'do_normalize': False},
     )
     model = model.to(args.device).eval()
-    print('Loaded.\n')
+    print('Loaded.\n', flush=True)
 
     results = []
     for i, case in enumerate(CASES, start=1):
         better_label, better_text = case['better']
         worse_label, worse_text = case['worse']
 
+        t0 = time.time()
         s_better = score(model, tokenizer, case['prompt'], better_text, args.device)
         s_worse = score(model, tokenizer, case['prompt'], worse_text, args.device)
+        elapsed = time.time() - t0
         margin = s_better - s_worse
         ok = margin > 0
 
         results.append({'case': case, 'better': s_better, 'worse': s_worse,
                         'margin': margin, 'ok': ok})
 
-        print(f'[{i}] {case["group"]}  —  {case["why"]}')
+        print(f'[{i}/{len(CASES)}] {case["group"]}  —  {case["why"]}')
         print(f'    prompt : {case["prompt"][:70]}')
         print(f'    {"PASS" if ok else "FAIL"}   '
               f'{better_label} {s_better:+.3f}   vs   {worse_label} {s_worse:+.3f}   '
-              f'margin {margin:+.3f}')
-        print()
+              f'margin {margin:+.3f}   [{elapsed:.1f}s]')
+        print(flush=True)
 
     passed = sum(1 for r in results if r['ok'])
     all_scores = [r['better'] for r in results] + [r['worse'] for r in results]
