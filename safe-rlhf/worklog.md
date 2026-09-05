@@ -660,6 +660,71 @@ slowly are worth more than they look on this cluster.
 
 ---
 
+## Session 13 — Correction: Session 12 was wrong. biggpu works; one node is faulty
+
+**Date:** 2026-09-05
+
+**Did:** Rebuilt the environment for CUDA 12.8+ on the conclusion from Session 12 that
+`biggpu`'s Blackwell cards were unreachable from a `cu118` build. Cloned the working env
+(`conda create --clone safe-rlhf -n safe-rlhf-cu128`) rather than creating one from
+scratch, specifically to avoid the ToS wall and solver hang of Session 6. Cloning copies
+an already-solved package set, so no dependency resolution runs at all — it worked in
+minutes where Session 6 took days.
+
+Then swapped PyTorch. Note a mistake worth recording: `pip install --force-reinstall
+deepspeed` reinstalls DeepSpeed's *dependencies* too, which pulled the current PyPI torch
+(2.14.0+cu130) and discarded the 2.7.1+cu128 that had just been installed deliberately.
+`--no-deps` was needed. The accident was benign — 2.14 imports cleanly against
+transformers 4.46.3, deepspeed 0.19.6, peft 0.20.0, datasets 5.0.1, and
+`transformers.tokenization_utils` still resolves — but it was not a chosen version.
+
+**Found — the Session 12 conclusion does not survive testing.**
+
+The new build's arch list is `['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']`,
+so Blackwell (`sm_120`) is covered. **It still fails on `mscluster111` with the identical
+`RuntimeError: No CUDA GPUs are available`.** An architecture mismatch cannot explain a
+failure that persists after the architecture is supported.
+
+Surveying the partition explains what was actually happening — **`biggpu` is
+heterogeneous**, and the earlier tests happened to land on different nodes:
+
+| Node | GPU | VRAM | CUDA works? |
+|---|---|---|---|
+| mscluster107 (and most) | **2 × Quadro RTX 8000** | 48 GB each, 96 GB/node | **yes** |
+| mscluster111 | 1 × RTX PRO 6000 Blackwell | 96 GB | **no — faults under both cu118 and cu130** |
+
+A `bf16` matmul on an RTX 8000 node succeeded under the new env. Those cards are `sm_75`,
+which `cu118` has always supported — so **the original environment would have worked on
+biggpu all along**, had it landed on a working node.
+
+**Concluded — correcting Session 12:**
+
+1. **biggpu is usable and always was.** The blocker was a node fault, not an architecture
+   gap. `mscluster111` belongs on the faulty list alongside `mscluster65` and
+   `mscluster83` (bigbatch) — all three show the same signature: `nvidia-smi` lists the
+   GPU, CUDA cannot initialise. Reproduced across two CUDA toolkits, so it is the nodes.
+2. **The MSS documentation was accurate.** Most biggpu nodes are the documented
+   2 × Quadro RTX 8000. The Blackwell card is a newer addition on one node.
+3. **The rebuild was unnecessary but not harmful.** `safe-rlhf-cu128` spans `sm_75`
+   through `sm_120`, so it runs on every GPU generation here. Kept in reserve for when
+   the Blackwell node is repaired.
+4. **Stage 5 will use the original `safe-rlhf` env**, which passed Stages 3 and 4 and is
+   `sm_75`-capable. torch 2.14 + transformers 4.46 + deepspeed 0.19.6 is an untested
+   combination end to end, and there is no reason to re-validate a working stack.
+5. **The memory constraint is gone.** 48 GB per card fits a 7B reward model, a 7B cost
+   model, and a 1.5B actor plus critic — roughly 34 GB — which is exactly the
+   configuration that would not fit bigbatch's 24 GB.
+
+**Methodological note.** Two node faults had already been found on bigbatch before this,
+with the same symptom. The Blackwell hypothesis was reached by looking at what was
+*unusual* about the failing node rather than what it had *in common* with previously
+failing nodes, and it cost an environment rebuild. It was also over-confirmed: the
+`compute_cap 12.0` reading fit the story, so the story stopped being questioned. The
+cheaper test — run the same code on a different node in the same partition — was
+available the whole time.
+
+---
+
 ## Open tasks
 
 **Blocking the first real run:**
@@ -686,10 +751,12 @@ slowly are worth more than they look on this cluster.
       Session 11 shows the reward signal cannot serve as a safety gate. Needs
       `--cost_model_name_or_path` plumbed through, and the cost model is LLaMA-family so
       it uses the same `batch_retokenize` bridge as the reward model.
-- [ ] **Choose the Stage 5 target: bigbatch (24 GB, works now) or rebuild for biggpu
-      (96 GB, needs CUDA 12.8+).** Affects actor size and whether a 7B reward *and* 7B
-      cost model can be resident simultaneously — two 7B detectors plus actor and critic
-      will not fit 24 GB, which may force one detector, a smaller one, or the rebuild.
+- [x] **Stage 5 target chosen (Session 13): biggpu, on the Quadro RTX 8000 nodes,
+      excluding `mscluster111`.** 48 GB per card fits reward + cost + actor + critic
+      (~34 GB) with headroom. Use the original `safe-rlhf` env, not `safe-rlhf-cu128`.
+- [ ] Report the three faulty nodes to the Help Desk — `mscluster65`, `mscluster83`
+      (bigbatch) and `mscluster111` (biggpu): `nvidia-smi` lists the GPU but CUDA cannot
+      initialise, reproduced under CUDA 11.8 and 13.0.
 - [ ] Re-examine whether the Sessions 8–9 saturation finding still holds with an
       unbounded cost signal. If `V_MIN`/`V_MAX` now move across a full run, a documented
       limitation becomes a solved problem.
