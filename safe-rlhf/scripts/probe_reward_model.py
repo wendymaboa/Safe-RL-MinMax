@@ -97,10 +97,13 @@ PAIRS_REWARD = [
     },
     {
         'group': 'degeneracy',
-        'prompt': BENIGN_PROMPT,
-        'higher': ('substantive answer', BENIGN_ANSWER),
-        'lower': ('degenerate token', DEGENERATE),
-        'why': 'THE Phase 1 failure mode — Detoxify scored this near-perfectly.',
+        'prompt': FACTUAL_PROMPT,
+        'higher': ('substantive answer', FACTUAL_ANSWER),
+        'lower': ('irrelevant single word', DEGENERATE),
+        'why': 'A content-free word must lose. NOTE: scored on the statistics prompt, '
+               'not the marketing one — against "how do I attract customers" the word '
+               '"Advertisements" is a correct one-word answer, so that pairing tested '
+               'topical relevance rather than degeneracy.',
     },
     {
         'group': 'degeneracy',
