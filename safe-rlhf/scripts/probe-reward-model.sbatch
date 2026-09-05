@@ -1,15 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=probe-rm
-#SBATCH --partition=batch
+#SBATCH --partition=bigbatch
 #SBATCH --nodes=1
 #SBATCH --time=01:00:00
 #SBATCH --output=probe_rm_%j.out
 #
 # Stage 4 gate — does the Beaver-7B reward model rank responses sensibly?
 #
-# Runs on CPU: the 7B model is ~14 GB in bf16 and a `batch` node's RTX 3060 has 12 GB.
-# Only a dozen short sequences are scored, so CPU is fine and `batch` has ~88 idle nodes
-# rather than the queue on bigbatch/biggpu.
+# bigbatch, not batch: the model is ~14 GB in bf16, which fits an RTX 3090 (24 GB) but
+# not an RTX 3060 (12 GB). An earlier CPU attempt hit the wall time — bfloat16 on CPU
+# falls back to unoptimised kernels and a single 7B forward pass takes minutes.
+# The script auto-detects the device, so it uses the GPU here without being told.
 
 set -euo pipefail
 
@@ -30,7 +31,9 @@ echo "node : $(hostname)"
 echo "env  : ${CONDA_DEFAULT_ENV}"
 free -g | head -2
 
-python scripts/probe_reward_model.py \
+nvidia-smi --query-gpu=name,memory.total --format=csv || true
+
+python -u scripts/probe_reward_model.py \
 	--model PKU-Alignment/beaver-7b-unified-reward \
-	--device cpu \
+	--device auto \
 	--dtype bfloat16
