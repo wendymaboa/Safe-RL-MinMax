@@ -725,6 +725,152 @@ available the whole time.
 
 ---
 
+## Session 14 — Stage 5 run A: three bugs, and the prompt template was the real one
+
+**Date:** 2026-09-06
+
+**Framing.** The goal of this phase is to reproduce PKU's pipeline in PKU's codebase with
+two substitutions: **Qwen2.5-1.5B-Instruct in place of Alpaca-7B**, and **LoRA in place of
+full fine-tuning**. Everything else stays theirs. Most of what follows is the consequence
+of the first substitution, which turned out to reach further than expected.
+
+**Run design.** Stage 5 is three runs, not one:
+
+| Run | Signal | Isolates |
+|---|---|---|
+| A | reward only | what plain RLHF does with no safety signal |
+| B | reward + fixed penalty when cost > 0 | what *having* a safety signal buys |
+| C | reward + Minmax when cost > 0 | what the self-calibrating bound buys over a fixed one |
+
+A alone cannot support a claim about Minmax. Without B, "Minmax improved safety" is
+answerable with "you added a harm detector; would any penalty have done the same?"
+
+---
+
+### Attempt 1 — critic initialisation
+
+Ran 563 of 1671 steps before the 12-hour limit. Two problems.
+
+**Step count.** Dataset proportion 0.21 produced 1671 steps, not the ~1000 estimated from
+the row count. The ratio is now calibrated from observation (0.126 → ~1000).
+
+**Speed: 64 s/step.** Quadro RTX 8000 is Turing (`sm_75`), which has **no hardware
+bfloat16**. Switching to `--fp16` — Turing has native fp16 tensor cores — took it to about
+5 s/step. A full run went from ~30 hours to ~1.5.
+
+**Reward fell**, windowed means +1.05 → +0.14. Cause visible alongside it:
+`reward_value` began at **+3.09** against a true reward near 1.05. `init_score_head`
+zeroes the score head's *bias* but leaves its *weight* at PyTorch's default random init,
+which against real hidden states produces outputs of magnitude ~3. Advantage is
+`return − value`, so an over-predicting critic makes **every advantage negative** and PPO
+pushes down on everything the policy emits until the critic catches up.
+
+Fixed by zero-initialising `score_head.weight`. Standard for value heads and safe — the
+gradient is `dL/dout · hidden`, so it still learns immediately, and reward/cost models
+overwrite it from their checkpoints. Verified on the smoke test: `reward_value` first
+window went from ~3 to +0.58, and `reward_advantage` from −0.097 to **+0.49**.
+
+---
+
+### Attempt 2 — two environment bugs
+
+**`no kernel image is available for execution on the device`.** `biggpu` is
+**heterogeneous**: most nodes are 2 × Quadro RTX 8000 (48 GB, `sm_75`), at least one is
+RTX PRO 6000 Blackwell (96 GB, `sm_120`). The `cu118` env has no kernels for `sm_120`.
+All job scripts now default to `safe-rlhf-cu128` (torch 2.14+cu130, arch list
+`sm_75`–`sm_120`), which runs on any node. Selectable via `SAFE_RLHF_ENV`.
+
+So the Session 13 conclusion needs one further amendment: the rebuild **was** necessary,
+though not for the reason Session 12 gave. `mscluster111` is faulty *and* other Blackwell
+nodes exist that cu118 genuinely cannot address.
+
+**`ValueError: zip() argument 2 is longer than argument 1`** in the LR scheduler.
+`get_optimizer_grouped_parameters()` always returns two groups (decay / no-decay, split on
+`bias` and `LayerNorm.weight`) over `requires_grad` params. Under LoRA the actor's only
+trainable tensors are `lora_A`/`lora_B` weights, which match neither name — so the
+no-decay group comes back **empty**. DeepSpeed drops it, leaving one param group, while
+the scheduler was built when there were two. **torch ≥ 2.14 added `strict=True` to that
+zip**; older torch silently truncated.
+
+This is a latent upstream bug, not a version artefact: the mismatch existed on torch 2.5.1
+too and was merely invisible. Any LoRA user of this codebase hits it. Fixed by dropping
+empty parameter groups before constructing the optimizer.
+
+---
+
+### Attempt 3 — the real bug: Qwen never terminates under PKU's prompt template
+
+The run completed: 1062 steps, ~1.5 hours, 21 adapter snapshots at 4.2 MB.
+
+**Reward fell 2.3 units and plateaued; KL rose to +6 and plateaued**, both at about the
+50% mark. Decile trend:
+
+    train/reward        +0.94 → +0.18 → −0.49 → −0.99 → −1.20 → −1.30 → flat
+    train/kl_divergence −0.28 → +0.26 → +2.40 → +4.43 → +6.18 → flat ~+5.5
+
+Not runaway instability — convergence to an attractor that scores worse than the start.
+No scalar could say what the attractor *was*, so the snapshots were replayed with
+`scripts/generate_from_adapter.py` (new), which regenerates from any adapter on fixed
+prompts with fixed seeds, anchored against the untrained base model.
+
+**The base model, before any training, already failed the same way.** Every generation ran
+to the token cap, hallucinating extra `USER:`/`ASSISTANT:` turns and decaying into noise:
+
+    "...\nCONVERSATION BEGINS: AGENT: Broadly speaking this is what modern society..."
+    "...\nUSER: Hey!\nASSISTANT: Hello what can WeeMan-please help me with today?"
+
+**Cause.** PKU's template (`BEGINNING OF CONVERSATION: USER: … ASSISTANT:`) matches
+Alpaca-7B, which was SFT'd on exactly that format and therefore terminates in it. Qwen2.5-
+Instruct was trained on ChatML, where a turn ends with `<|im_end|>` — which is also its
+`eos_token`, and which `rl_trainer.py` already passes to `GenerationConfig`. Under the
+Alpaca template Qwen is in raw-completion mode with no marker it recognises as
+end-of-turn, so it never stops.
+
+Every response was therefore *coherent opening + garbage tail, truncated mid-word*. The
+reward model scored the whole string, so the training signal was dominated by noise in the
+tail. PPO optimised against that noise for 1000 steps, which is what the drift and the
+reward decline were.
+
+**This reverses the Session 8 template decision, on evidence.** That decision weighed what
+the reward model *receives* (`skip_special_tokens=True` strips ChatML markers) but not what
+the actor can *produce*. The correct comparison:
+
+| | What the reward model sees |
+|---|---|
+| Alpaca | perfect structure wrapping truncated garbage |
+| ChatML | bare `user`/`assistant` words wrapping a clean, complete answer |
+
+A preference model can read "assistant" as a word; it cannot score a sentence that stops
+mid-word.
+
+**Fix.** `configs/constants.py` now selects the template via
+`SAFE_RLHF_PROMPT_TEMPLATE=alpaca|chatml`, defaulting to `alpaca` so upstream is unchanged.
+Job scripts set `chatml`.
+
+**Verified by regenerating from the same adapters under the new template:**
+
+| Prompt | Alpaca | ChatML |
+|---|---|---|
+| "How do I pick a lock…" | "shuriken and blade", `END OF CONVERSATION`, Python blocks | **"I'm really sorry, but I can't assist with that… we don't condone illegal or criminal activity"** |
+| structure | invented turns | none |
+| termination | never | checkpoint-50 ends cleanly mid-budget |
+
+Qwen's own safety behaviour was present the whole time; the template was suppressing it.
+
+**Concluded.** Run A's numbers are void — they measured a pipeline whose generation was
+broken. The run was not wasted: it produced this finding and validated the full stack on
+real hardware at real scale. Rerunning under ChatML.
+
+**Note for interpreting the rerun:** responses will now be far shorter (a terminated answer
+rather than 455 tokens of filler), so the reward scale is not comparable to the previous
+run. It is a different measurement, not a continuation.
+
+**Still open, and specific to the substitution:** PKU's reward model was trained on
+Alpaca-7B responses and is now scoring Qwen responses. If reward behaves oddly once
+termination is fixed, that distribution gap is the next thing to examine.
+
+---
+
 ## Open tasks
 
 **Blocking the first real run:**
@@ -742,8 +888,10 @@ available the whole time.
 - [ ] **Resume is still not implemented** and does not exist upstream either. A run killed
       by load shedding restarts from zero. Adapter snapshots make this survivable
       (restart from the latest adapter, losing optimizer state) but there is no code for it.
-- [x] Prompt template decided and verified (Session 8): **keep upstream Alpaca-style**.
-      Reverses the plan document's recommendation; see Session 8 for the reasoning.
+- [x] ~~Prompt template: keep upstream Alpaca-style (Session 8).~~ **Reversed in
+      Session 14 on evidence.** Qwen never emits its eos token under the Alpaca template,
+      so every generation runs to max_length and decays into noise. Now
+      `SAFE_RLHF_PROMPT_TEMPLATE=chatml`.
 
 **Decisions reopened by Sessions 11–12:**
 
@@ -760,6 +908,17 @@ available the whole time.
 - [ ] Re-examine whether the Sessions 8–9 saturation finding still holds with an
       unbounded cost signal. If `V_MIN`/`V_MAX` now move across a full run, a documented
       limitation becomes a solved problem.
+
+**Stage 5 remaining:**
+
+- [ ] Run A rerun under ChatML — the reward-only baseline.
+- [ ] **Run B: fixed penalty when cost > 0.** Needs `--cost_model_name_or_path` plumbed
+      into `algorithms/ppo` (it currently exists only in `ppo_lag`), scored through the
+      same `batch_retokenize` bridge, and logged alongside reward.
+- [ ] **Run C: Minmax when cost > 0**, sharing B's cost-model plumbing.
+- [ ] Watch whether PKU's reward model — trained on Alpaca-7B responses — behaves sensibly
+      when scoring Qwen responses. A distribution gap here would be a real finding about
+      transplanting a reward model across actor families.
 
 **Before trusting any result:**
 
