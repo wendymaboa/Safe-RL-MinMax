@@ -60,12 +60,21 @@ def main() -> None:
                     print(f'    step {e.step:>6}  {e.value:+.6f}')
             else:
                 if finite:
+                    # Report windowed MEANS, not first/last. Single steps are noisy —
+                    # per-step reward can swing several units at small batch sizes — so
+                    # comparing two individual points reads noise as trend.
+                    w = max(1, len(finite) // 10)
+                    head = sum(finite[:w]) / w
+                    tail = sum(finite[-w:]) / w
+                    delta = tail - head
+                    arrow = '↑' if delta > 0 else ('↓' if delta < 0 else '=')
                     # %g, not %f: learning rates like 1e-5 round to 0.0000 in fixed point
                     # and look like a bug when they are perfectly correct.
                     summary = (
                         f'n={len(values):<4} '
-                        f'first={values[0]:+.5g}  last={values[-1]:+.5g}  '
-                        f'min={min(finite):+.5g}  max={max(finite):+.5g}'
+                        f'first{w}={head:+.4g}  last{w}={tail:+.4g}  '
+                        f'{arrow}{abs(delta):.4g}   '
+                        f'[{min(finite):+.4g}, {max(finite):+.4g}]'
                     )
                 else:
                     summary = f'n={len(values):<4} (no finite values)'
