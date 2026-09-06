@@ -327,6 +327,17 @@ class RLTrainer(TrainerBase):  # pylint: disable=too-many-instance-attributes
         ds_config: dict[str, Any],
     ) -> deepspeed.DeepSpeedEngine:
         optimizer_grouped_parameters = get_optimizer_grouped_parameters(model, weight_decay)
+        # Drop empty parameter groups. get_optimizer_grouped_parameters() always returns
+        # two (decay / no-decay, split on 'bias' and 'LayerNorm.weight') over params with
+        # requires_grad. Under LoRA the actor's only trainable tensors are lora_A/lora_B
+        # weights, which match neither name, so the no-decay group comes back EMPTY.
+        # DeepSpeed then drops it, leaving one param_group, while the LR scheduler was
+        # built from the optimizer when it still had two — and torch >= 2.14 zips those
+        # with strict=True and raises `zip() argument 2 is longer than argument 1`.
+        # Older torch silently truncated, which is why this only appears on the newer env.
+        optimizer_grouped_parameters = [
+            group for group in optimizer_grouped_parameters if group['params']
+        ]
         if getattr(self.args, 'use_torch_adam', False):
             # Both DeepSpeedCPUAdam and FusedAdam are JIT-compiled CUDA kernels. CUDA 11.8's
             # nvcc refuses host compilers newer than gcc 11, and mscluster ships gcc 15, so
