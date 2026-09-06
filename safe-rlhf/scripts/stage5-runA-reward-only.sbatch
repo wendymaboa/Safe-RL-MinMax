@@ -20,22 +20,27 @@
 # Deliberately NO cost model here — run A is defined by its absence. Adding one is
 # run B's job and needs code that does not exist yet.
 #
-# --exclude=mscluster111: that node's GPU faults under both CUDA 11.8 and 13.0
-# (nvidia-smi lists it, CUDA cannot initialise). Same fault as mscluster65 and 83.
-# The remaining biggpu nodes are 2 x Quadro RTX 8000, 48 GB each.
+# biggpu is HETEROGENEOUS: some nodes are 2 x Quadro RTX 8000 (48 GB, Turing sm_75),
+# at least one is RTX PRO 6000 Blackwell (96 GB, sm_120). The cu118 env has no kernels
+# for sm_120 and dies with "no kernel image is available for execution on the device",
+# so this defaults to safe-rlhf-cu128, whose arch list spans sm_75..sm_120 and therefore
+# runs on whichever node SLURM gives us. Override with SAFE_RLHF_ENV=safe-rlhf.
+#
+# mscluster111 is excluded separately: its GPU faults under BOTH CUDA toolkits
+# (nvidia-smi lists it, CUDA cannot initialise) — same fault as mscluster65 and 83.
 #
 # Memory, single card: reward 7B ~14 GB + actor 1.5B ~3 GB + critic 1.5B ~3 GB = ~20 GB
 # of weights, plus logits tensors (batch x 512 x 151936 vocab) which are the real
-# consumer. Batch 8 keeps that near ~2.5 GB per tensor. Comfortable inside 48 GB.
-#
-# Uses the ORIGINAL `safe-rlhf` env, not safe-rlhf-cu128. RTX 8000 is sm_75, which
-# cu118 supports; that env passed Stages 3 and 4 and there is no reason to re-validate
-# a working stack on torch 2.14.
+# consumer. Batch 8 keeps that near ~2.5 GB per tensor. Fits the smaller 48 GB cards.
 
 set -euo pipefail
 
+# Env is selectable: safe-rlhf is cu118 (sm_75..sm_90) and safe-rlhf-cu128 is
+# torch 2.14+cu130 (sm_75..sm_120). biggpu is heterogeneous — some nodes are
+# Blackwell sm_120, where cu118 fails with "no kernel image is available".
+SAFE_RLHF_ENV="${SAFE_RLHF_ENV:-safe-rlhf-cu128}"
 source "$HOME/miniconda3/etc/profile.d/conda.sh"
-conda activate safe-rlhf
+conda activate "$SAFE_RLHF_ENV"
 
 export HF_HUB_DISABLE_XET=1
 export HF_HUB_ETAG_TIMEOUT=15

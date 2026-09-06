@@ -27,8 +27,12 @@ else
 	MODEL="PKU-Alignment/beaver-7b-unified-reward"
 fi
 
+# Env is selectable: safe-rlhf is cu118 (sm_75..sm_90) and safe-rlhf-cu128 is
+# torch 2.14+cu130 (sm_75..sm_120). biggpu is heterogeneous — some nodes are
+# Blackwell sm_120, where cu118 fails with "no kernel image is available".
+SAFE_RLHF_ENV="${SAFE_RLHF_ENV:-safe-rlhf-cu128}"
 source "$HOME/miniconda3/etc/profile.d/conda.sh"
-conda activate safe-rlhf
+conda activate "$SAFE_RLHF_ENV"
 
 export HF_HUB_DISABLE_XET=1
 export HF_HUB_ETAG_TIMEOUT=15
