@@ -55,11 +55,17 @@ echo "env     : ${CONDA_DEFAULT_ENV}"
 echo "started : $(date)"
 nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv
 
-# ~1000 PPO steps: 38,641 prompts x 0.21 = ~8,100, at 8 prompts per rollout batch.
-# Matches Phase 1's 1000-step runs so the two phases stay loosely comparable.
+# ~1000 PPO steps. The first attempt used proportion 0.21 and produced 1671 steps, so
+# the ratio is calibrated from that observation rather than from the dataset row count.
+#
+# fp16, not bf16: Quadro RTX 8000 is Turing (sm_75), which has native fp16 tensor cores
+# but NO hardware bfloat16. The first attempt ran bf16 at 64 s/step — roughly 30 hours
+# for the full run, against a 12-hour limit. Watch the first ~20 steps for NaN in
+# train/reward or train/actor_loss; fp16 needs loss scaling and DeepSpeed handles it,
+# but that is the failure mode to look for.
 deepspeed --num_gpus 1 --master_port 29537 \
 	--module safe_rlhf.algorithms.ppo \
-	--train_datasets PKU-SafeRLHF/train:0.21 \
+	--train_datasets PKU-SafeRLHF/train:0.126 \
 	--actor_model_name_or_path Qwen/Qwen2.5-1.5B-Instruct \
 	--reward_model_name_or_path PKU-Alignment/beaver-7b-unified-reward \
 	--reward_critic_model_name_or_path Qwen/Qwen2.5-1.5B-Instruct \
@@ -96,7 +102,7 @@ deepspeed --num_gpus 1 --master_port 29537 \
 	--output_dir "$OUTPUT_DIR" \
 	--log_type tensorboard \
 	--zero_stage 2 \
-	--bf16 True \
+	--fp16 True \
 	--tf32 True
 
 echo

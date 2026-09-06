@@ -133,6 +133,17 @@ class ScoreModelMixin:
         )
 
         self.score_head = nn.Linear(hidden_size, config.score_dim, bias=config.score_bias)
+        # Zero-initialise the head so a freshly created score model predicts exactly 0.
+        # PyTorch's default nn.Linear init leaves the weight random, and against real
+        # hidden states that produces outputs of magnitude ~3. For a CRITIC that is
+        # ruinous: advantage = return - value, so an over-predicting value head makes
+        # every advantage negative and PPO pushes down on everything the policy emits
+        # until the critic catches up — hundreds of steps of actively harmful updates.
+        # Zero-init is standard for value heads and safe: the gradient w.r.t. the weight
+        # is dL/dout * hidden, which is non-zero, so it still learns immediately.
+        # Reward and cost models load a trained head from their checkpoint, which
+        # overwrites this, so only freshly initialised heads are affected.
+        nn.init.zeros_(self.score_head.weight)
         if config.score_bias:
             nn.init.zeros_(self.score_head.bias)
 
