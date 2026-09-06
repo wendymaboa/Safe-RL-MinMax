@@ -30,6 +30,10 @@ def main() -> None:
     parser.add_argument('logdir', type=str, help='Directory to search for event files.')
     parser.add_argument('--tag', type=str, default=None, help='Only this scalar tag.')
     parser.add_argument('--full', action='store_true', help='Print every step.')
+    parser.add_argument('--trend', action='store_true',
+                        help='Print 10 window means across the run. Distinguishes a steady '
+                             'decline from an early crash followed by a plateau — which '
+                             'imply different causes.')
     args = parser.parse_args()
 
     event_dirs = find_event_dirs(args.logdir)
@@ -54,7 +58,25 @@ def main() -> None:
             finite = [v for v in values if math.isfinite(v)]
             bad = len(values) - len(finite)
 
-            if args.full:
+            if args.trend:
+                # Ten equal windows across the run, so the SHAPE of the change is visible
+                # rather than only its endpoints.
+                n = len(finite)
+                if n < 10:
+                    print(f'\n  {tag}: too few points for a trend')
+                    continue
+                size = n // 10
+                means = [
+                    sum(finite[i * size:(i + 1) * size]) / size
+                    for i in range(10)
+                ]
+                lo, hi = min(means), max(means)
+                span = (hi - lo) or 1.0
+                print(f'\n  {tag}')
+                for i, m in enumerate(means):
+                    bar = '#' * int(1 + 38 * (m - lo) / span)
+                    print(f'    {i * 10:>3}-{(i + 1) * 10:<3}%  {m:+11.4g}  {bar}')
+            elif args.full:
                 print(f'\n  {tag}')
                 for e in events:
                     print(f'    step {e.step:>6}  {e.value:+.6f}')
