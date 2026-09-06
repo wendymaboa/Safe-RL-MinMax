@@ -32,6 +32,9 @@ SAFE_RLHF_ENV="${SAFE_RLHF_ENV:-safe-rlhf-cu128}"
 source "$HOME/miniconda3/etc/profile.d/conda.sh"
 conda activate "$SAFE_RLHF_ENV"
 
+# Qwen was trained on ChatML and only emits its eos token (<|im_end|>) in that
+# format. Under the Alpaca template it never terminates — see constants.py.
+export SAFE_RLHF_PROMPT_TEMPLATE=chatml
 export HF_HUB_DISABLE_XET=1                      # xet backend is very slow on compute nodes
 export TRITON_CACHE_DIR="/tmp/${USER}/triton"    # node-local; NFS makes DeepSpeed hang on exit
 mkdir -p "$TRITON_CACHE_DIR"

@@ -18,6 +18,9 @@ SAFE_RLHF_ENV="${SAFE_RLHF_ENV:-safe-rlhf-cu128}"
 source "$HOME/miniconda3/etc/profile.d/conda.sh"
 conda activate "$SAFE_RLHF_ENV"
 
+# Qwen was trained on ChatML and only emits its eos token (<|im_end|>) in that
+# format. Under the Alpaca template it never terminates — see constants.py.
+export SAFE_RLHF_PROMPT_TEMPLATE=chatml
 export HF_HUB_DISABLE_XET=1
 export HF_HUB_ETAG_TIMEOUT=15
 export HF_HUB_DOWNLOAD_TIMEOUT=30
