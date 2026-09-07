@@ -1,8 +1,8 @@
 # 2. Bounded reward and saturation
 
-Source sessions: 8–9 · Full text: [/book/worklogs/phase1.md](/book/worklogs/phase1.md)
+Source sessions: 8–9 · Full text: [/worklog/worklogs/phase1.md](/worklog/worklogs/phase1.md)
 
-Sessions 8–9 answer a question that looks like “why is the floor clipping?” and turns out to be “why can’t self-calibration grow when the detector is bounded?” This is the first deep structural finding of Phase 1 — and the reason Phase 2 moved to a different safety signal. Read the raw session text in [/book/worklogs/phase1.md](/book/worklogs/phase1.md) if you need the exact wording of the negative result.
+Sessions 8–9 answer a question that looks like “why is the floor clipping?” and turns out to be “why can’t self-calibration grow when the detector is bounded?” This is the first deep structural finding of Phase 1 — and the reason Phase 2 moved to a different safety signal. Read the raw session text in [/worklog/worklogs/phase1.md](/worklog/worklogs/phase1.md) if you need the exact wording of the negative result.
 
 ```mermaid
 flowchart TB
@@ -45,7 +45,7 @@ This is structural, not a coding bug. The bookkeeping is doing what the math all
 
 **What “self-calibration” was supposed to mean.** In the ROSARL story, $R_{\text{unsafe}}$ grows more negative over training as $V_{\MIN}$ and $V_{\MAX}$ keep separating — a running estimate of how bad “unsafe” looks relative to “safe.” Under Detoxify that story ends by step ~150: once both extremes of $[-1,1]$ have been seen often enough, the gap is stuck at the arithmetic bound. Watching `floor_active` thereafter mostly reports that you are sitting on that bound, not that a new mechanism is clipping a still-growing signal.
 
-Phase 2’s later cost-model probe ([/book/phase2/04-reward-cost-and-gpu.md](/book/phase2/04-reward-cost-and-gpu.md), then Stage 5) matters partly because Beaver cost scores are *not* trapped in $[0,1]$ the same way — Session 11 of Phase 2 records observed costs roughly in $[-4, +4.3]$, which reopens the empirical question of whether bounds can move across a full run. Run C’s floor of $-50$ ([/book/phase2/07-run-c.md](/book/phase2/07-run-c.md)) is deliberately chosen so that question stays answerable.
+Phase 2’s later cost-model probe ([/worklog/phase2/04-reward-cost-and-gpu.md](/worklog/phase2/04-reward-cost-and-gpu.md), then Stage 5) matters partly because Beaver cost scores are *not* trapped in $[0,1]$ the same way — Session 11 of Phase 2 records observed costs roughly in $[-4, +4.3]$, which reopens the empirical question of whether bounds can move across a full run. Run C’s floor of $-50$ ([/worklog/phase2/07-run-c.md](/worklog/phase2/07-run-c.md)) is deliberately chosen so that question stays answerable.
 
 ## Session 9 — Unbounded log-odds transform (tried, not merged)
 
@@ -85,7 +85,7 @@ flowchart LR
 
 <div class="finding caution">
 <span class="label">Caution — Algorithm 1 deviation</span>
-The value fed into $V_{\MIN}$ / $V_{\MAX}$ bookkeeping was a synthetic proxy, not the critic’s literal output. That is a real deviation from Algorithm 1. The change was <strong>not</strong> merged into the live codebase; it was superseded by the category-scoped approach in <a href="/book/phase1/03-design-choices.md">Design choices</a>. Keep the negative result for the limitations chapter.
+The value fed into $V_{\MIN}$ / $V_{\MAX}$ bookkeeping was a synthetic proxy, not the critic’s literal output. That is a real deviation from Algorithm 1. The change was <strong>not</strong> merged into the live codebase; it was superseded by the category-scoped approach in <a href="/worklog/phase1/03-design-choices.md">Design choices</a>. Keep the negative result for the limitations chapter.
 </div>
 
 **Second structural finding.** No reparameterization of a bounded detector output produces genuinely unbounded self-calibration, because the detector itself (Detoxify) is fundamentally bounded. Re-expressing $\delta$ as log-odds only moves the hard wall to $\varepsilon$; it does not invent information the detector never had.
@@ -94,7 +94,7 @@ The value fed into $V_{\MIN}$ / $V_{\MAX}$ bookkeeping was a synthetic proxy, no
 
 ## Why this matters for the rest of Phase 1
 
-Saturation explains why “watch $R_{\text{unsafe}}$ grow more negative” stopped being a useful training diagnostic after ~150 steps. It does *not* yet explain the later Advertisements collapse — that is a separate failure mode (weak KL + gameable proxy) documented in [Advertisements collapse](/book/phase1/04-advertisements-collapse.md).
+Saturation explains why “watch $R_{\text{unsafe}}$ grow more negative” stopped being a useful training diagnostic after ~150 steps. It does *not* yet explain the later Advertisements collapse — that is a separate failure mode (weak KL + gameable proxy) documented in [Advertisements collapse](/worklog/phase1/04-advertisements-collapse.md).
 
 What Sessions 8–9 *do* motivate next:
 
@@ -102,4 +102,4 @@ What Sessions 8–9 *do* motivate next:
 2. Isolate whether fragility lives in PPO itself or only in the auxiliary bookkeeping (Session 12).
 3. Treat “bounded detector ⇒ dead self-calibration” as a limitation claim, not a temporary bug.
 
-Full session prose: [/book/worklogs/phase1.md](/book/worklogs/phase1.md).
+Full session prose: [/worklog/worklogs/phase1.md](/worklog/worklogs/phase1.md).

@@ -22,14 +22,14 @@ python run_experiment.py --smoke-test --seed 42
 
 See `ppo_minmax_experiment/README.md` for full training, evaluation, and design notes.
 
-## Research textbook (Docsify + GitHub Pages)
+## Research worklog (Docsify + GitHub Pages)
 
-Curated textbook + **full mirrors of both worklogs** live under `docs/`:
+Guided notes + **full mirrors of both worklogs** live under `docs/`:
 
 | On site | Source file |
 |---|---|
-| `#/book/worklogs/phase1` | `ppo_minmax_experiment/worklog.md` |
-| `#/book/worklogs/phase2` | `safe-rlhf/worklog.md` |
+| `#/worklog/worklogs/phase1` | `ppo_minmax_experiment/worklog.md` |
+| `#/worklog/worklogs/phase2` | `safe-rlhf/worklog.md` |
 
 After editing either worklog:
 

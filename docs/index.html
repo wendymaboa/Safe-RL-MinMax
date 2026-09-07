@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Safe RL + MinMax — Research Textbook</title>
+  <title>Safe RL + MinMax — Research Worklog</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-  <meta name="description" content="Textbook-style reconstruction of the Safe RL + MinMax research worklogs, with diagrams." />
+  <meta name="description" content="Worklog-style reconstruction of the Safe RL + MinMax research worklogs, with diagrams." />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css" />
-  <link rel="stylesheet" href="assets/textbook.css" />
+  <link rel="stylesheet" href="assets/worklog.css" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <div id="app">Loading textbook…</div>
+  <div id="app">Loading worklog…</div>
   <script>
     // Works for both local `serve docs` (/) and GitHub project Pages (/Safe-RL-MinMax/).
     function docsifyBasePath() {
@@ -33,18 +33,18 @@
       nameLink: '#/',
       repo: 'wendymaboa/Safe-RL-MinMax',
       basePath: docsifyBasePath(),
-      homepage: 'book/README.md',
+      homepage: 'worklog/README.md',
       loadSidebar: true,
       loadNavbar: true,
       subMaxLevel: 2,
       auto2top: true,
-      // MUST stay false: with true, sidebar links become book/book/... after the first click → 404.
+      // MUST stay false: with true, sidebar links nest after the first click → 404.
       relativePath: false,
       search: {
-        placeholder: 'Search worklogs & chapters',
+        placeholder: 'Search worklogs & notes',
         noData: 'No results',
         depth: 4,
-        pathNamespaces: ['/', '/book', '/book/phase1', '/book/phase2', '/book/worklogs'],
+        pathNamespaces: ['/', '/worklog', '/worklog/phase1', '/worklog/phase2', '/worklog/worklogs'],
       },
       alias: {
         '/.*/_sidebar.md': '/_sidebar.md',

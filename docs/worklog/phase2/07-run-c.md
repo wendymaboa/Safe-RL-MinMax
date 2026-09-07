@@ -1,10 +1,10 @@
 # 07 — Run C (cost-gated MinMax)
 
-Source sessions: 18 · Full text: [/book/worklogs/phase2.md](/book/worklogs/phase2.md)
+Source sessions: 18 · Full text: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md)
 
 *Session 18 · 2026-09-07*
 
-Run C is the thesis contrast against Run B: **identical cost gate**, different penalty magnitude. Status: **implemented and unit-tested locally; not yet trained on the cluster.** Canonical design notes: [/book/worklogs/phase2.md](/book/worklogs/phase2.md).
+Run C is the thesis contrast against Run B: **identical cost gate**, different penalty magnitude. Status: **implemented and unit-tested locally; not yet trained on the cluster.** Canonical design notes: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md).
 
 ## What Run C is for
 
@@ -36,7 +36,7 @@ Module: `safe_rlhf.algorithms.ppo_cost_minmax`. Trainer subclasses `PPOCostGateT
 | Penalty floor | **−50.0** (matches `clip_range_score`) | Phase 1 floored at −2 because Detoxify was bounded; flooring here at −2 would make “do the bounds move past B?” unanswerable |
 | Init | \(V_{\MIN} = V_{\MAX} = 0\) | Beaver rewards are unbounded; seeding ±1 invents a Detoxify-shaped scale |
 
-The floor choice is load-bearing for the thesis claim. Phase 1’s −2 floor was mostly arithmetic confirmation under Detoxify ∈ [0,1] (see [/book/phase1/02-saturation.md](/book/phase1/02-saturation.md)). Here the cost/reward scores are not trapped that way; a −2 floor would *force* Run C to look like Run B and make the contrast unanswerable.
+The floor choice is load-bearing for the thesis claim. Phase 1’s −2 floor was mostly arithmetic confirmation under Detoxify ∈ [0,1] (see [/worklog/phase1/02-saturation.md](/worklog/phase1/02-saturation.md)). Here the cost/reward scores are not trapped that way; a −2 floor would *force* Run C to look like Run B and make the contrast unanswerable.
 
 **Bound source = reward (not critic) by default.** Same lesson as Phase 1 Session 10: start from the detector/reward end scores that are stable early, and only fold in critic values after warmup if explicitly requested. That keeps Run C’s bookkeeping comparable to the Phase 1 default rather than inventing a new Path-2 pathology mid-thesis.
 
@@ -71,7 +71,7 @@ No cluster training run. Next steps recorded in the worklog:
 
 1. Sync the new module to `~/Safe-RL-MinMax` on the cluster.
 2. `sbatch scripts/stage5-runC-cost-minmax.sbatch`.
-3. Inspect + cost-rescore against A/B with the same protocol as Sessions 16–17 ([/book/phase2/06-run-b.md](/book/phase2/06-run-b.md)).
+3. Inspect + cost-rescore against A/B with the same protocol as Sessions 16–17 ([/worklog/phase2/06-run-b.md](/worklog/phase2/06-run-b.md)).
 
 ## What to measure once it finishes
 
@@ -83,7 +83,7 @@ No cluster training run. Next steps recorded in the worklog:
 | Benign reward-hacking vs B | Better / worse / unchanged on statistics-style prompts |
 | Do \(V_{\MIN}/V_{\MAX}\) move across the run? | Revisits Phase 1’s saturation finding with an unbounded signal |
 
-Until those numbers exist, **do not** claim MinMax improves safety. Claims stay at A+B: [/book/10-claims.md](/book/10-claims.md). Open list: [/book/11-open-questions.md](/book/11-open-questions.md).
+Until those numbers exist, **do not** claim MinMax improves safety. Claims stay at A+B: [/worklog/10-claims.md](/worklog/10-claims.md). Open list: [/worklog/11-open-questions.md](/worklog/11-open-questions.md).
 
 ## How to read a future Run C result
 
@@ -98,4 +98,4 @@ A prettier refusal on one prompt with a frozen $R_{\text{unsafe}}$ near −2 is 
 
 ---
 
-**Prev:** [06](/book/phase2/06-run-b.md) · **Up:** [Phase 2 map](/book/phase2/README.md) · **Book home:** [/book/README.md](/book/README.md)
+**Prev:** [06](/worklog/phase2/06-run-b.md) · **Up:** [Phase 2 map](/worklog/phase2/README.md) · **Worklog home:** [/worklog/README.md](/worklog/README.md)

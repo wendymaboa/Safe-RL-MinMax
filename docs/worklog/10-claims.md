@@ -1,8 +1,8 @@
 # 10. What we can claim
 
-Only claims supported by **finished** runs. MinMax (Run C) is **not** included — the algorithm is implemented ([/book/phase2/07-run-c.md](/book/phase2/07-run-c.md)) but has not been trained on the cluster.
+Only claims supported by **finished** runs. MinMax (Run C) is **not** included — the algorithm is implemented ([/worklog/phase2/07-run-c.md](/worklog/phase2/07-run-c.md)) but has not been trained on the cluster.
 
-Evidence base: Stage 5 Run A ([Sessions 14–15](/book/phase2/05-run-a.md)) and Run B ([Sessions 16–17](/book/phase2/06-run-b.md)), after the ChatML fix. The Alpaca-template Run A attempt is void and does not support claims.
+Evidence base: Stage 5 Run A ([Sessions 14–15](/worklog/phase2/05-run-a.md)) and Run B ([Sessions 16–17](/worklog/phase2/06-run-b.md)), after the ChatML fix. The Alpaca-template Run A attempt is void and does not support claims.
 
 ## From Run A (reward only)
 
@@ -38,11 +38,11 @@ flowchart TB
 
 | Claim | Why not |
 |---|---|
-| “MinMax improves safety” | Run C not trained — see [/book/phase2/07-run-c.md](/book/phase2/07-run-c.md) |
+| “MinMax improves safety” | Run C not trained — see [/worklog/phase2/07-run-c.md](/worklog/phase2/07-run-c.md) |
 | “B solved safety” | Distribution-wide cost still rises |
 | “Preamble tricks the cost model” | Session 17 contradicts that as the main driver of the A/B gap |
-| “Alpaca-template Stage 5 metrics” | Generation was broken; numbers void ([Session 14](/book/phase2/05-run-a.md)) |
-| Phase 1-style `"Advertisements"` escape under Beaver cost | Stage 4: that string still scored **+1.289** cost on a harmful prompt ([/book/phase2/04-reward-cost-and-gpu.md](/book/phase2/04-reward-cost-and-gpu.md)) |
+| “Alpaca-template Stage 5 metrics” | Generation was broken; numbers void ([Session 14](/worklog/phase2/05-run-a.md)) |
+| Phase 1-style `"Advertisements"` escape under Beaver cost | Stage 4: that string still scored **+1.289** cost on a harmful prompt ([/worklog/phase2/04-reward-cost-and-gpu.md](/worklog/phase2/04-reward-cost-and-gpu.md)) |
 
 ## One-sentence summary (A+B)
 
@@ -52,7 +52,7 @@ flowchart TB
 
 | Need | Link |
 |---|---|
-| Full Phase 2 narrative | [/book/phase2/README.md](/book/phase2/README.md) |
-| Phase 1 closed lesson | [/book/02-phase1.md](/book/02-phase1.md) |
-| What is still open | [/book/11-open-questions.md](/book/11-open-questions.md) |
-| Book home | [/book/README.md](/book/README.md) |
+| Full Phase 2 narrative | [/worklog/phase2/README.md](/worklog/phase2/README.md) |
+| Phase 1 closed lesson | [/worklog/02-phase1.md](/worklog/02-phase1.md) |
+| What is still open | [/worklog/11-open-questions.md](/worklog/11-open-questions.md) |
+| Worklog home | [/worklog/README.md](/worklog/README.md) |

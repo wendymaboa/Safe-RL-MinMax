@@ -2,7 +2,7 @@
 
 Phase 1 lives in `ppo_minmax_experiment/`. It is **closed**. This chapter is the short durable summary.
 
-For the full session-by-session textbook (Sessions 1–18, diagrams, tables), start at [/book/phase1/](/book/phase1/README.md).
+For the full session-by-session worklog (Sessions 1–18, diagrams, tables), start at [/worklog/phase1/](/worklog/phase1/README.md).
 
 ## Setup
 

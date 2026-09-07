@@ -1,10 +1,10 @@
 # 02 — LoRA and the MKL wall
 
-Source sessions: 4–7 · Full text: [/book/worklogs/phase2.md](/book/worklogs/phase2.md)
+Source sessions: 4–7 · Full text: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md)
 
 *Sessions 4–7 · 2026-08-25 → 2026-08-27*
 
-With a clean tree and a cluster map, the next work is architectural reading, LoRA plumbing, escaping the MKL install wall, and proving the adapters at runtime. Canonical trail: [/book/worklogs/phase2.md](/book/worklogs/phase2.md).
+With a clean tree and a cluster map, the next work is architectural reading, LoRA plumbing, escaping the MKL install wall, and proving the adapters at runtime. Canonical trail: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md).
 
 ```mermaid
 flowchart LR
@@ -62,7 +62,7 @@ Two further scope decisions recorded:
 - **Skip SFT** — Qwen2.5-Instruct already ships instruction-tuned; PKU needed SFT only because raw LLaMA-7B cannot follow instructions.
 - **Use PKU’s released reward model** rather than training one — removes an entire training stage and is more faithful to “official shape” than a home-trained RM.
 
-*(The cost model enters scope later, in [Session 11](/book/phase2/04-reward-cost-and-gpu.md); the ~20 GB budget then widens.)*
+*(The cost model enters scope later, in [Session 11](/worklog/phase2/04-reward-cost-and-gpu.md); the ~20 GB budget then widens.)*
 
 ## Session 5 — LoRA plumbing implemented
 
@@ -177,8 +177,8 @@ flowchart LR
   S1 --> Open[Still open: adapter save/resume<br/>ZeRO-3 + PeftModel]
 ```
 
-**Stage 1 is functionally verified**, except for adapter save/resume, which has no runtime coverage yet. The remaining unknowns are DeepSpeed-specific — whether a `PeftModel` survives ZeRO wrapping, and whether `AdapterDisabledReference` behaves under parameter partitioning — and neither can be tested without a real distributed launch. That is [Stage 3](/book/phase2/03-template-and-ppo-loop.md).
+**Stage 1 is functionally verified**, except for adapter save/resume, which has no runtime coverage yet. The remaining unknowns are DeepSpeed-specific — whether a `PeftModel` survives ZeRO wrapping, and whether `AdapterDisabledReference` behaves under parameter partitioning — and neither can be tested without a real distributed launch. That is [Stage 3](/worklog/phase2/03-template-and-ppo-loop.md).
 
 ---
 
-**Prev:** [01](/book/phase2/01-reset-and-cluster.md) · **Next:** [03 — Template and PPO loop](/book/phase2/03-template-and-ppo-loop.md)
+**Prev:** [01](/worklog/phase2/01-reset-and-cluster.md) · **Next:** [03 — Template and PPO loop](/worklog/phase2/03-template-and-ppo-loop.md)

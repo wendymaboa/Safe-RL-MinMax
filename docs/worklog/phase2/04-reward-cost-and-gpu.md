@@ -1,10 +1,10 @@
 # 04 — Reward, cost, and GPU estate
 
-Source sessions: 11–13 · Full text: [/book/worklogs/phase2.md](/book/worklogs/phase2.md)
+Source sessions: 11–13 · Full text: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md)
 
 *Sessions 11–13 · 2026-09-05*
 
-Stage 4 asks whether Beaver’s preference models behave as assumed before spending biggpu hours. The answer reshapes Stage 5. Then a GPU audit nearly derails the plan — until a correction shows the blocker was a faulty node, not (only) architecture. Canonical trail: [/book/worklogs/phase2.md](/book/worklogs/phase2.md).
+Stage 4 asks whether Beaver’s preference models behave as assumed before spending biggpu hours. The answer reshapes Stage 5. Then a GPU audit nearly derails the plan — until a correction shows the blocker was a faulty node, not (only) architecture. Canonical trail: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md).
 
 ```mermaid
 flowchart TB
@@ -155,7 +155,7 @@ A `bf16` matmul on an RTX 8000 node succeeded under the new env. Those cards are
 </ol>
 </div>
 
-*(Session 14 later amends again: other Blackwell nodes exist that cu118 cannot address, so jobs default to `safe-rlhf-cu128` via `SAFE_RLHF_ENV` — see [05 — Run A](/book/phase2/05-run-a.md).)*
+*(Session 14 later amends again: other Blackwell nodes exist that cu118 cannot address, so jobs default to `safe-rlhf-cu128` via `SAFE_RLHF_ENV` — see [05 — Run A](/worklog/phase2/05-run-a.md).)*
 
 **Methodological note.** Two node faults had already been found on bigbatch before this, with the same symptom. The Blackwell hypothesis was reached by looking at what was *unusual* about the failing node rather than what it had *in common* with previously failing nodes, and it cost an environment rebuild. It was also over-confirmed: the `compute_cap 12.0` reading fit the story, so the story stopped being questioned. The cheaper test — run the same code on a different node in the same partition — was available the whole time.
 
@@ -175,4 +175,4 @@ timeline
 
 ---
 
-**Prev:** [03](/book/phase2/03-template-and-ppo-loop.md) · **Next:** [05 — Run A](/book/phase2/05-run-a.md)
+**Prev:** [03](/worklog/phase2/03-template-and-ppo-loop.md) · **Next:** [05 — Run A](/worklog/phase2/05-run-a.md)

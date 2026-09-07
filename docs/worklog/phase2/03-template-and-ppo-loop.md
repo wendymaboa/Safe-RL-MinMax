@@ -1,10 +1,10 @@
 # 03 — Template and PPO loop
 
-Source sessions: 8–10 · Full text: [/book/worklogs/phase2.md](/book/worklogs/phase2.md)
+Source sessions: 8–10 · Full text: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md)
 
 *Sessions 8–10 · 2026-08-27*
 
-Stage 2 locks the data path and (temporarily) the prompt template. Stage 3 gets a real DeepSpeed PPO launch through LoRA end to end — after fighting the cluster’s inability to JIT CUDA extensions. Canonical trail: [/book/worklogs/phase2.md](/book/worklogs/phase2.md).
+Stage 2 locks the data path and (temporarily) the prompt template. Stage 3 gets a real DeepSpeed PPO launch through LoRA end to end — after fighting the cluster’s inability to JIT CUDA extensions. Canonical trail: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md).
 
 ## Session 8 — Stage 2 closed: template decision made and verified
 
@@ -22,7 +22,7 @@ This reversed the original plan’s ChatML recommendation. The deciding fact: `p
 
 <div class="finding caution">
 <span class="label">Later reversal — Session 14</span>
-This decision is reversed on evidence in <a href="/book/phase2/05-run-a.md">Run A</a>: under Alpaca, Qwen never emits its eos token, so every generation runs to the length cap and decays into noise. ChatML becomes mandatory for Stage 5. The Session 8 argument about what the RM <em>receives</em> was incomplete about what the actor can <em>produce</em>.
+This decision is reversed on evidence in <a href="/worklog/phase2/05-run-a.md">Run A</a>: under Alpaca, Qwen never emits its eos token, so every generation runs to the length cap and decays into noise. ChatML becomes mandatory for Stage 5. The Session 8 argument about what the RM <em>receives</em> was incomplete about what the actor can <em>produce</em>.
 </div>
 
 **`scripts/verify_dataset.py` — 10/10 passed:**
@@ -136,4 +136,4 @@ flowchart LR
 
 ---
 
-**Prev:** [02](/book/phase2/02-lora-and-mkl.md) · **Next:** [04 — Reward, cost, and GPU](/book/phase2/04-reward-cost-and-gpu.md)
+**Prev:** [02](/worklog/phase2/02-lora-and-mkl.md) · **Next:** [04 — Reward, cost, and GPU](/worklog/phase2/04-reward-cost-and-gpu.md)

@@ -1,10 +1,10 @@
 # 05 — Run A (reward only)
 
-Source sessions: 14–15 · Full text: [/book/worklogs/phase2.md](/book/worklogs/phase2.md)
+Source sessions: 14–15 · Full text: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md)
 
 *Sessions 14–15 · 2026-09-06 → 2026-09-07*
 
-Stage 5 substitutes **Qwen2.5-1.5B-Instruct for Alpaca-7B** and **LoRA for full fine-tuning**, inside PKU’s codebase. Most of what follows is the consequence of the first substitution. Run A is the no-safety-signal control. Full session prose: [/book/worklogs/phase2.md](/book/worklogs/phase2.md).
+Stage 5 substitutes **Qwen2.5-1.5B-Instruct for Alpaca-7B** and **LoRA for full fine-tuning**, inside PKU’s codebase. Most of what follows is the consequence of the first substitution. Run A is the no-safety-signal control. Full session prose: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md).
 
 ## Stage 5 framing (three runs)
 
@@ -155,8 +155,8 @@ Helpfulness-only PPO removed a genuine base refusal in ~500 steps. The “instru
 
 `beaver-7b-unified-reward` — a strong 7B preference model trained on ~1M human comparisons — scored the fabricated, less coherent answers *higher*. Combined with length growth: verbosity + confident fabrication account for some real fraction of the reward increase.
 
-**Concluded.** Run A is a valid, informative baseline. Runs B and C are judged on exactly these two axes — does the lock-picking refusal survive, and does the statistics-answer fabrication get better, worse, or stay the same. Claims: [/book/10-claims.md](/book/10-claims.md).
+**Concluded.** Run A is a valid, informative baseline. Runs B and C are judged on exactly these two axes — does the lock-picking refusal survive, and does the statistics-answer fabrication get better, worse, or stay the same. Claims: [/worklog/10-claims.md](/worklog/10-claims.md).
 
 ---
 
-**Prev:** [04](/book/phase2/04-reward-cost-and-gpu.md) · **Next:** [06 — Run B](/book/phase2/06-run-b.md)
+**Prev:** [04](/worklog/phase2/04-reward-cost-and-gpu.md) · **Next:** [06 — Run B](/worklog/phase2/06-run-b.md)
