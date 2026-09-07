@@ -1,0 +1,34 @@
+Stage 5, Run A (reward-only PPO, ChatML template, seed 42) — decile trend
+Produced by: python scripts/dump_tb.py output/stage5_runA --trend --tag train/reward
+             python scripts/dump_tb.py output/stage5_runA --trend --tag train/mean_generated_length
+Captured: 2026-09-07, run completed 1062/1062 steps in ~5h on mscluster107 (Quadro RTX 8000)
+
+train/reward
+    0-10 %      +0.2686
+   10-20 %       +1.094
+   20-30 %       +1.444
+   30-40 %       +1.447
+   40-50 %       +1.447
+   50-60 %       +1.508
+   60-70 %       +1.406
+   70-80 %       +1.355
+   80-90 %       +1.371
+   90-100%       +1.404
+
+train/mean_generated_length
+    0-10 %       +146.8
+   10-20 %       +199.6
+   20-30 %       +229.3
+   30-40 %       +278.5
+   40-50 %       +316.6
+   50-60 %       +345.5
+   60-70 %       +356.8
+   70-80 %       +353.5
+   80-90 %       +363.6
+   90-100%         +365
+
+Reading: reward rises sharply through the first half (0.27 -> 1.51) then plateaus.
+Length rises roughly in step (147 -> 365 tokens) and plateaus at the same point.
+Neither runs away to the max_length=512 cap — this is a converged run, not a
+degenerating one, in the scalar sense. See inspect_runA_950.txt for why the reward
+increase is not straightforwardly a quality increase.
