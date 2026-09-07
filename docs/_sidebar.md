@@ -1,14 +1,18 @@
 * [Home](/book/README.md)
 * [How to read this book](/book/00-how-to-read.md)
 
-**Phase 1 — GPT-2 + Detoxify**
+**Full worklogs (source of truth)**
+* [Phase 1 worklog](/book/worklogs/phase1.md)
+* [Phase 2 worklog](/book/worklogs/phase2.md)
+
+**Phase 1 — guided chapters**
 * [Overview](/book/phase1/README.md)
 * [1. Pilot & pipeline bugs](/book/phase1/01-pilot-and-bugs.md)
 * [2. Saturation of MinMax](/book/phase1/02-saturation.md)
 * [3. Design choices](/book/phase1/03-design-choices.md)
 * [4. “Advertisements” collapse](/book/phase1/04-advertisements-collapse.md)
 
-**Phase 2 — Qwen + Safe RLHF**
+**Phase 2 — guided chapters**
 * [Overview](/book/phase2/README.md)
 * [1. Reset & cluster](/book/phase2/01-reset-and-cluster.md)
 * [2. LoRA & the MKL wall](/book/phase2/02-lora-and-mkl.md)
@@ -24,6 +28,6 @@
 
 **Back matter**
 * [Updating this book](/book/a-updating.md)
-* [Raw worklogs](/book/b-worklogs.md)
-* [Research question (short)](/book/01-research-question.md)
-* [A/B/C design (short)](/book/06-abc-design.md)
+* [Session index](/book/b-worklogs.md)
+* [Research question](/book/01-research-question.md)
+* [A/B/C design](/book/06-abc-design.md)

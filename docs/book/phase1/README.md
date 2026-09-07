@@ -2,7 +2,9 @@
 
 Phase 1 lives in `ppo_minmax_experiment/`. It is **closed**. These chapters expand the one-page summary in [Phase 1 in one chapter](/book/02-phase1.md) into a full narrative of what was tried, what broke, and what you can honestly claim.
 
-The chronological source remains [`ppo_minmax_experiment/worklog.md`](../../../ppo_minmax_experiment/worklog.md) (Sessions 1–18). This folder is the textbook rewrite: same facts, pedagogical order.
+**Full chronological source (Docsify mirror):** [/book/worklogs/phase1.md](/book/worklogs/phase1.md) — Sessions 1–18, Did / Found / Concluded. Edit the repo file `ppo_minmax_experiment/worklog.md`, then run `python scripts/sync_worklogs_to_docs.py` before push (see [/book/a-updating.md](/book/a-updating.md)).
+
+This folder is the textbook rewrite: same facts, pedagogical order. Prefer the chapters for reading; prefer the worklog for audit.
 
 ## Setup at a glance
 

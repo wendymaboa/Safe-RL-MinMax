@@ -4,7 +4,9 @@
 
 Phase 2 reproduces the **official Safe RLHF algorithm shape** (reward model + actor-critic PPO) on **Qwen2.5-Instruct + LoRA**, then adds a cost-gated safety path for the A / B / C comparison. It does **not** adopt PPO-Lag or Lagrangian multipliers for the Stage 5 design — the cost model is used as a **detector**, the role Detoxify played in [Phase 1](/book/02-phase1.md).
 
-Chronological source: [`safe-rlhf/worklog.md`](../../../safe-rlhf/worklog.md) (Sessions 1–18). This map is the curated reading order.
+**Full chronological source (Docsify mirror):** [/book/worklogs/phase2.md](/book/worklogs/phase2.md) — Sessions 1–18+, Did / Found / Concluded. Edit the repo file `safe-rlhf/worklog.md`, then run `python scripts/sync_worklogs_to_docs.py` before push (see [/book/a-updating.md](/book/a-updating.md)).
+
+This map is the curated reading order. Prefer chapters for narrative; prefer the worklog for audit.
 
 ## Stages → chapters
 
@@ -75,6 +77,7 @@ Skip SFT (Instruct already ships tuned). Skip training a home reward model — u
 
 ## Related reading
 
+- **Worklog mirror:** [/book/worklogs/phase2.md](/book/worklogs/phase2.md)  
 - Book home: [/book/README.md](/book/README.md)  
 - Phase 1 summary: [/book/02-phase1.md](/book/02-phase1.md)  
 - Durable claims (A+B only): [/book/10-claims.md](/book/10-claims.md)  
