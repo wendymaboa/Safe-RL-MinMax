@@ -1,33 +1,43 @@
 # How to read this book
 
-## Two documents, two jobs
+## Two layers, both from the worklogs
 
-**Worklog** = chronological honesty. Dead ends stay. Wrong conclusions get *new* entries, not silent edits.
+| Layer | What it is | Where |
+|---|---|---|
+| **Worklogs** | Full chronological Did / Found / Concluded — every dead end kept | [/book/worklogs/phase1.md](/book/worklogs/phase1.md), [/book/worklogs/phase2.md](/book/worklogs/phase2.md) |
+| **Guided chapters** | Same facts, textbook order, with diagrams | [/book/phase1/](/book/phase1/README.md), [/book/phase2/](/book/phase2/README.md) |
 
-**Textbook** = pedagogical clarity. Chapters are rewritten when understanding improves. Diagrams and tables are preferred over session numbers.
+Canonical files in git:
 
-If the two disagree, trust the **latest worklog session**, then update this book.
+- `ppo_minmax_experiment/worklog.md`
+- `safe-rlhf/worklog.md`
 
-## Conventions
+The Pages site mirrors them under `docs/book/worklogs/` (GitHub Pages can only serve `docs/`). After editing a worklog, run:
 
-| Marker | Meaning |
-|---|---|
-| **Finding** callout | Empirical result we treat as solid enough to cite |
-| **Caution** callout | Easy misread or corrected earlier claim |
-| Mermaid diagrams | Architecture / experimental logic — not decorative |
-| Session references | Pointers into the worklog for audit |
+```bash
+python scripts/sync_worklogs_to_docs.py
+```
+
+If a guided chapter and the worklog disagree, **trust the worklog**, then fix the chapter.
 
 ## Suggested paths
 
-**Supervisor / examiner (45 minutes)**  
-Chapters 1 → 6 → 7 → 8 → 10.
+**Supervisor (full story)**  
+Worklog Phase 1 → Worklog Phase 2, or guided chapters in sidebar order.
 
-**Someone reproducing the stack**  
-Chapters 3 → 5 → 6 → Appendix A.
+**Examiner (claims only)**  
+[/book/10-claims.md](/book/10-claims.md) → skim [/book/phase1/04-advertisements-collapse.md](/book/phase1/04-advertisements-collapse.md) and [/book/phase2/05-run-a.md](/book/phase2/05-run-a.md)–[06](/book/phase2/06-run-b.md).
 
-**Someone continuing Run C**  
-Chapters 6 → 8 → 9 → 11.
+**Continuing Run C**  
+[/book/worklogs/phase2.md](/book/worklogs/phase2.md) Session 18 → [/book/phase2/07-run-c.md](/book/phase2/07-run-c.md).
 
-## Edition note
+## Conventions in guided chapters
 
-This edition was first drafted from Phase 2 Sessions 1–18 and the Phase 1 closing summary. Update policy: [Appendix A](/book/a-updating.md).
+| Marker | Meaning |
+|---|---|
+| Finding callout | Empirical result solid enough to cite |
+| Caution callout | Easy misread or corrected earlier claim |
+| Mermaid | Architecture / experimental logic |
+| Session headers | Map 1:1 onto worklog sessions |
+
+Update policy: [/book/a-updating.md](/book/a-updating.md).

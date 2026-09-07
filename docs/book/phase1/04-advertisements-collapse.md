@@ -1,6 +1,8 @@
 # 4. Advertisements collapse and the fair close
 
-Sessions 14–18 are the climax of Phase 1. A seed-42 / 1000-step run that looked like “MinMax reaches 0% harm” turned out to be reward hacking plus entropy collapse. Tracing the origin of `"Advertisements"`, fixing the environment, matching $\beta$, and retraining a fair baseline closes the pilot with an honest claim: **viable at matched KL, not clearly better**.
+Source sessions: 14–18 · Full text: [/book/worklogs/phase1.md](/book/worklogs/phase1.md)
+
+Sessions 14–18 are the climax of Phase 1. A seed-42 / 1000-step run that looked like “MinMax reaches 0% harm” turned out to be reward hacking plus entropy collapse. Tracing the origin of `"Advertisements"` (H1 rejected, H2 confirmed), fixing the environment, sample eval, the $\beta=0.2$ ablation, and retraining a fair baseline closes the pilot with an honest claim: **viable at matched KL, not clearly better** (2.0% vs 2.3% harm, one seed). Canonical trail: [/book/worklogs/phase1.md](/book/worklogs/phase1.md).
 
 ```mermaid
 sequenceDiagram

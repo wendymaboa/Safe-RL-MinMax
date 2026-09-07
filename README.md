@@ -24,13 +24,22 @@ See `ppo_minmax_experiment/README.md` for full training, evaluation, and design 
 
 ## Research textbook (Docsify + GitHub Pages)
 
-A curated, textbook-style version of the worklogs (chapters, diagrams, durable claims) lives in `docs/`:
+Curated textbook + **full mirrors of both worklogs** live under `docs/`:
 
-- Preview locally: `python -m http.server 4173 --directory docs`
-- Enable Pages: **Settings → Pages → Deploy from branch → `main` / `/docs`**
-- Site (once enabled): https://wendymaboa.github.io/Safe-RL-MinMax/
+| On site | Source file |
+|---|---|
+| `#/book/worklogs/phase1` | `ppo_minmax_experiment/worklog.md` |
+| `#/book/worklogs/phase2` | `safe-rlhf/worklog.md` |
 
-Chronological lab notes remain in `safe-rlhf/worklog.md` and `ppo_minmax_experiment/worklog.md`. How to update the book: `docs/book/a-updating.md`.
+After editing either worklog:
+
+```bash
+python scripts/sync_worklogs_to_docs.py
+```
+
+- Preview: `python -m http.server 4173 --directory docs`
+- Pages: **Settings → Pages → `main` / `/docs`**
+- URL: https://wendymaboa.github.io/Safe-RL-MinMax/
 
 ## Notes
 
