@@ -22,6 +22,16 @@ python run_experiment.py --smoke-test --seed 42
 
 See `ppo_minmax_experiment/README.md` for full training, evaluation, and design notes.
 
+## Research textbook (Docsify + GitHub Pages)
+
+A curated, textbook-style version of the worklogs (chapters, diagrams, durable claims) lives in `docs/`:
+
+- Preview locally: `python -m http.server 4173 --directory docs`
+- Enable Pages: **Settings → Pages → Deploy from branch → `main` / `/docs`**
+- Site (once enabled): https://wendymaboa.github.io/Safe-RL-MinMax/
+
+Chronological lab notes remain in `safe-rlhf/worklog.md` and `ppo_minmax_experiment/worklog.md`. How to update the book: `docs/book/a-updating.md`.
+
 ## Notes
 
 - Large experiment artifacts (checkpoints, local model weights, run outputs) are gitignored.

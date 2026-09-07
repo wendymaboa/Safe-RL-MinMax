@@ -1,0 +1,175 @@
+/* Textbook shell over Docsify vue theme */
+:root {
+  --ink: #1a2332;
+  --ink-muted: #4a5568;
+  --paper: #fbfaf7;
+  --paper-deep: #f0ece3;
+  --rule: #d4cfc4;
+  --accent: #2c4a6e;
+  --accent-soft: #e8eef5;
+  --callout: #f7f3ea;
+  --danger: #8b3a3a;
+  --ok: #2f5d50;
+}
+
+html, body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  line-height: 1.65;
+}
+
+.sidebar {
+  background: #f7f4ee !important;
+  border-right: 1px solid var(--rule) !important;
+}
+
+.sidebar .app-name-link {
+  font-family: Literata, Georgia, serif !important;
+  font-weight: 700 !important;
+  color: var(--accent) !important;
+  letter-spacing: -0.02em;
+}
+
+.sidebar ul li a {
+  color: var(--ink-muted) !important;
+  font-size: 0.92rem !important;
+}
+
+.sidebar ul li.active > a {
+  color: var(--accent) !important;
+  font-weight: 700 !important;
+}
+
+.sidebar-nav > ul > li > strong,
+.sidebar-nav > ul > p {
+  display: block;
+  margin: 1.1rem 0 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+main {
+  font-size: 1.05rem;
+}
+
+.content {
+  max-width: 46rem;
+}
+
+.markdown-section h1,
+.markdown-section h2,
+.markdown-section h3 {
+  font-family: Literata, Georgia, serif;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.markdown-section h1 {
+  font-size: 2.15rem;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.markdown-section h2 {
+  font-size: 1.45rem;
+  margin-top: 2.2rem;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.25rem;
+}
+
+.markdown-section h3 {
+  font-size: 1.15rem;
+  margin-top: 1.6rem;
+}
+
+.markdown-section p,
+.markdown-section li {
+  color: var(--ink);
+}
+
+.markdown-section blockquote {
+  border-left: 3px solid var(--accent);
+  background: var(--callout);
+  color: var(--ink);
+  padding: 0.75rem 1rem;
+  margin: 1.25rem 0;
+}
+
+.markdown-section code,
+.markdown-section pre {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.markdown-section table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.markdown-section th {
+  background: var(--accent-soft);
+  border-bottom: 2px solid var(--accent);
+}
+
+.markdown-section td,
+.markdown-section th {
+  border: 1px solid var(--rule);
+  padding: 0.5rem 0.65rem;
+}
+
+.mermaid-wrap {
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.cover-kicker {
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.finding {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--ok);
+  background: #f4f8f6;
+  padding: 0.85rem 1rem;
+  margin: 1.2rem 0;
+}
+
+.finding.caution {
+  border-left-color: var(--danger);
+  background: #faf4f4;
+}
+
+.finding .label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink-muted);
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.app-nav a {
+  color: var(--accent) !important;
+}
+
+@media (max-width: 768px) {
+  .markdown-section h1 { font-size: 1.7rem; }
+}
