@@ -1,8 +1,8 @@
 # 1. Pilot run and early bugs
 
-Source sessions: 1–7 · Full text: [/book/worklogs/phase1.md](/book/worklogs/phase1.md)
+Source sessions: 1–7 · Full text: [/worklog/worklogs/phase1.md](/worklog/worklogs/phase1.md)
 
-Sessions 1–7 are the pipeline story: get something training, then discover that several “results” were measuring the wrong thing. By the end of this chapter you have a reward convention, a trustworthy empty-response rule, seeded batched training, and a PPO configuration that does not self-destruct — but you still cannot trust early harm rates for publication. The chronological Did / Found / Concluded trail lives in the [Phase 1 worklog mirror](/book/worklogs/phase1.md).
+Sessions 1–7 are the pipeline story: get something training, then discover that several “results” were measuring the wrong thing. By the end of this chapter you have a reward convention, a trustworthy empty-response rule, seeded batched training, and a PPO configuration that does not self-destruct — but you still cannot trust early harm rates for publication. The chronological Did / Found / Concluded trail lives in the [Phase 1 worklog mirror](/worklog/worklogs/phase1.md).
 
 ```mermaid
 timeline
@@ -35,7 +35,7 @@ At Session 1 this looked like a successful pilot. The rest of this chapter exist
 
 <div class="finding caution">
 <span class="label">Caution — do not cite</span>
-Sessions 2–4 later showed that both training and eval were broken at this point. Keep the proposal number in the archive; do not treat it as a trustworthy result going forward. See also <a href="/book/phase1/README.md">Phase 1 overview</a> and the full session text in <a href="/book/worklogs/phase1.md">phase1.md</a>.
+Sessions 2–4 later showed that both training and eval were broken at this point. Keep the proposal number in the archive; do not treat it as a trustworthy result going forward. See also <a href="/worklog/phase1/README.md">Phase 1 overview</a> and the full session text in <a href="/worklog/worklogs/phase1.md">phase1.md</a>.
 </div>
 
 ## Session 2 — Reward centering bug
@@ -69,7 +69,7 @@ $V_{\MIN}$ / $V_{\MAX}$ early in training were noisy and unstable even after cen
 - Under causal attention that position has attended to the whole sequence.
 - It is the natural match for a single terminal reward at episode end.
 
-This does not invent a new algorithm; it aligns the bookkeeping with how a terminal reward actually works. Saturation findings in [02 — Saturation](/book/phase1/02-saturation.md) later show that even a correctly extracted terminal value still cannot escape a bounded detector.
+This does not invent a new algorithm; it aligns the bookkeeping with how a terminal reward actually works. Saturation findings in [02 — Saturation](/worklog/phase1/02-saturation.md) later show that even a correctly extracted terminal value still cannot escape a bounded detector.
 
 ## Session 4 — Empty-response eval bug (critical)
 
@@ -143,4 +143,4 @@ Hard switch kept. Smooth blending was tested and rejected: softening the cliff d
 
 ## Where this leaves you
 
-You now have a centered reward, terminal-value bounds, a non-lying empty-response rule, seeded batched training, a stable PPO config, and a hard unsafe switch. The next structural surprise is not a bug in the loop — it is what bounded Detoxify rewards do to $V_{\MIN}$ and $V_{\MAX}$. Continue in [Saturation](/book/phase1/02-saturation.md). For the unedited session prose, see [/book/worklogs/phase1.md](/book/worklogs/phase1.md).
+You now have a centered reward, terminal-value bounds, a non-lying empty-response rule, seeded batched training, a stable PPO config, and a hard unsafe switch. The next structural surprise is not a bug in the loop — it is what bounded Detoxify rewards do to $V_{\MIN}$ and $V_{\MAX}$. Continue in [Saturation](/worklog/phase1/02-saturation.md). For the unedited session prose, see [/worklog/worklogs/phase1.md](/worklog/worklogs/phase1.md).

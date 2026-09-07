@@ -1,10 +1,10 @@
 # Phase 1 — GPT-2 + Detoxify pilot
 
-Phase 1 lives in `ppo_minmax_experiment/`. It is **closed**. These chapters expand the one-page summary in [Phase 1 in one chapter](/book/02-phase1.md) into a full narrative of what was tried, what broke, and what you can honestly claim.
+Phase 1 lives in `ppo_minmax_experiment/`. It is **closed**. These chapters expand the one-page summary in [Phase 1 in one chapter](/worklog/02-phase1.md) into a full narrative of what was tried, what broke, and what you can honestly claim.
 
-**Full chronological source (Docsify mirror):** [/book/worklogs/phase1.md](/book/worklogs/phase1.md) — Sessions 1–18, Did / Found / Concluded. Edit the repo file `ppo_minmax_experiment/worklog.md`, then run `python scripts/sync_worklogs_to_docs.py` before push (see [/book/a-updating.md](/book/a-updating.md)).
+**Full chronological source (Docsify mirror):** [/worklog/worklogs/phase1.md](/worklog/worklogs/phase1.md) — Sessions 1–18, Did / Found / Concluded. Edit the repo file `ppo_minmax_experiment/worklog.md`, then run `python scripts/sync_worklogs_to_docs.py` before push (see [/worklog/a-updating.md](/worklog/a-updating.md)).
 
-This folder is the textbook rewrite: same facts, pedagogical order. Prefer the chapters for reading; prefer the worklog for audit.
+This folder is the worklog rewrite: same facts, pedagogical order. Prefer the chapters for reading; prefer the worklog for audit.
 
 ## Setup at a glance
 
@@ -53,10 +53,10 @@ flowchart TB
 
 | Chapter | Sessions | What you learn |
 |---|---|---|
-| [01 — Pilot and bugs](/book/phase1/01-pilot-and-bugs.md) | 1–7 | Proposal number, reward convention, terminal value, eval bug, determinism, PPO stability, hard switch |
-| [02 — Saturation](/book/phase1/02-saturation.md) | 8–9 | Why $V_{\MIN}-V_{\MAX}$ freezes near $-2$; why unbounded log-odds still fails |
-| [03 — Design choices](/book/phase1/03-design-choices.md) | 10–13 | Category bounds, KL asymmetry hypothesis, Path 1 vs Path 2, diagnostics |
-| [04 — Advertisements collapse](/book/phase1/04-advertisements-collapse.md) | 14–18 | Reward hacking, entropy collapse, H2, env mismatch, $\beta=0.2$ fix, fair baseline |
+| [01 — Pilot and bugs](/worklog/phase1/01-pilot-and-bugs.md) | 1–7 | Proposal number, reward convention, terminal value, eval bug, determinism, PPO stability, hard switch |
+| [02 — Saturation](/worklog/phase1/02-saturation.md) | 8–9 | Why $V_{\MIN}-V_{\MAX}$ freezes near $-2$; why unbounded log-odds still fails |
+| [03 — Design choices](/worklog/phase1/03-design-choices.md) | 10–13 | Category bounds, KL asymmetry hypothesis, Path 1 vs Path 2, diagnostics |
+| [04 — Advertisements collapse](/worklog/phase1/04-advertisements-collapse.md) | 14–18 | Reward hacking, entropy collapse, H2, env mismatch, $\beta=0.2$ fix, fair baseline |
 
 ## How to cite these results
 

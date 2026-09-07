@@ -1,10 +1,10 @@
 # 06 — Run B (fixed cost gate)
 
-Source sessions: 16–17 · Full text: [/book/worklogs/phase2.md](/book/worklogs/phase2.md)
+Source sessions: 16–17 · Full text: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md)
 
 *Sessions 16–17 · 2026-09-07*
 
-Run B shares Run A’s actor, reward model, ChatML, seed, and step budget, and adds `beaver-7b-unified-cost` with a fixed gate: if `cost > 0`, replace reward with **−2.0** (`ppo_cost_gate`). Full Did / Found / Concluded: [/book/worklogs/phase2.md](/book/worklogs/phase2.md).
+Run B shares Run A’s actor, reward model, ChatML, seed, and step budget, and adds `beaver-7b-unified-cost` with a fixed gate: if `cost > 0`, replace reward with **−2.0** (`ppo_cost_gate`). Full Did / Found / Concluded: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md).
 
 ## Session 16 — Qualitative check: a learned safety-flavored preamble
 
@@ -104,8 +104,8 @@ The shared preamble is real (confirmed again in this data) but is <strong>not</s
 Run B is a genuine partial success, not a pure negative. The gate fires <em>and helps</em> on the hard probe; it does not arrest average-case cost drift. Framing “gate fires and isn’t enough” must include “helps on the probe.”
 </div>
 
-Durable claims: [/book/10-claims.md](/book/10-claims.md). That is why Run C exists: same gate, self-calibrating magnitude — see [/book/phase2/07-run-c.md](/book/phase2/07-run-c.md).
+Durable claims: [/worklog/10-claims.md](/worklog/10-claims.md). That is why Run C exists: same gate, self-calibrating magnitude — see [/worklog/phase2/07-run-c.md](/worklog/phase2/07-run-c.md).
 
 ---
 
-**Prev:** [05](/book/phase2/05-run-a.md) · **Next:** [07 — Run C](/book/phase2/07-run-c.md)
+**Prev:** [05](/worklog/phase2/05-run-a.md) · **Next:** [07 — Run C](/worklog/phase2/07-run-c.md)

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Sync repo worklogs into docs/book/worklogs/ for GitHub Pages / Docsify.
+"""Sync repo worklogs into docs/worklog/worklogs/ for GitHub Pages / Docsify.
 
-GitHub Pages only serves the docs/ tree, so the textbook cannot link to
+GitHub Pages only serves the docs/ tree, so the site cannot fetch
 ../ppo_minmax_experiment/worklog.md at runtime. Edit the canonical worklogs
-in the experiment folders, then run this script (or rely on CI) before push.
+in the experiment folders, then run this script before push.
 """
 
 from __future__ import annotations
@@ -15,13 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 TARGETS = [
     {
         'src': ROOT / 'ppo_minmax_experiment' / 'worklog.md',
-        'dst': ROOT / 'docs' / 'book' / 'worklogs' / 'phase1.md',
+        'dst': ROOT / 'docs' / 'worklog' / 'worklogs' / 'phase1.md',
         'title': 'Phase 1 worklog — GPT-2 + Detoxify + MinMax',
         'canonical': 'ppo_minmax_experiment/worklog.md',
     },
     {
         'src': ROOT / 'safe-rlhf' / 'worklog.md',
-        'dst': ROOT / 'docs' / 'book' / 'worklogs' / 'phase2.md',
+        'dst': ROOT / 'docs' / 'worklog' / 'worklogs' / 'phase2.md',
         'title': 'Phase 2 worklog — Safe RLHF on Qwen + LoRA',
         'canonical': 'safe-rlhf/worklog.md',
     },

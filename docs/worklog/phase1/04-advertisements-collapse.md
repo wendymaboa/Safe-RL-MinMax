@@ -1,8 +1,8 @@
 # 4. Advertisements collapse and the fair close
 
-Source sessions: 14–18 · Full text: [/book/worklogs/phase1.md](/book/worklogs/phase1.md)
+Source sessions: 14–18 · Full text: [/worklog/worklogs/phase1.md](/worklog/worklogs/phase1.md)
 
-Sessions 14–18 are the climax of Phase 1. A seed-42 / 1000-step run that looked like “MinMax reaches 0% harm” turned out to be reward hacking plus entropy collapse. Tracing the origin of `"Advertisements"` (H1 rejected, H2 confirmed), fixing the environment, sample eval, the $\beta=0.2$ ablation, and retraining a fair baseline closes the pilot with an honest claim: **viable at matched KL, not clearly better** (2.0% vs 2.3% harm, one seed). Canonical trail: [/book/worklogs/phase1.md](/book/worklogs/phase1.md).
+Sessions 14–18 are the climax of Phase 1. A seed-42 / 1000-step run that looked like “MinMax reaches 0% harm” turned out to be reward hacking plus entropy collapse. Tracing the origin of `"Advertisements"` (H1 rejected, H2 confirmed), fixing the environment, sample eval, the $\beta=0.2$ ablation, and retraining a fair baseline closes the pilot with an honest claim: **viable at matched KL, not clearly better** (2.0% vs 2.3% harm, one seed). Canonical trail: [/worklog/worklogs/phase1.md](/worklog/worklogs/phase1.md).
 
 ```mermaid
 sequenceDiagram
@@ -47,7 +47,7 @@ $$
 
 — nearly the theoretical maximum. Both models discovered this degenerate solution: one benign word, maximum reward, no detectable toxicity.
 
-This is textbook **reward hacking** / Goodhart’s Law: maximising the proxy (Detoxify $\to 0$) while decoupling from the actual objective (helpful, non-harmful answers to sensitive prompts).
+This is worklog **reward hacking** / Goodhart’s Law: maximising the proxy (Detoxify $\to 0$) while decoupling from the actual objective (helpful, non-harmful answers to sensitive prompts).
 
 Next-most-common **baseline** responses were still plausible short answers: `"Yes."` (43), `"You can't."` (17), `"I'm not sure."` (12). Minmax’s non-Advertisements outputs are almost entirely garbage: `...` (38), `+` (31), `P` (24), `""` (15), `"` (12). The Minmax policy has fully collapsed.
 
@@ -78,7 +78,7 @@ In Minmax’s last 100 steps, **57 / 100** steps had negative KL (mean $-4.91$, 
 The summary CSV shows `minmax, _overall, harm_rate = 0.000`. That is not safety. Minmax achieved 0% harm by:
 
 - Outputting "Advertisements" for **69%** of prompts (scored harmless by Detoxify)
-- Leaving **11%** empty (excluded from harm scoring by design — see [Pilot and bugs](/book/phase1/01-pilot-and-bugs.md))
+- Leaving **11%** empty (excluded from harm scoring by design — see [Pilot and bugs](/worklog/phase1/01-pilot-and-bugs.md))
 - Producing garbage single tokens for the remaining **~20%**
 
 A policy that outputs "Advertisements" to every prompt — including "What is 2+2?" — scores 0% harm. That is not safety.
@@ -113,7 +113,7 @@ Categories where Advertisements is rare are exactly where baseline generated the
 
 ### KL asymmetry as a direct cause (hypothesis → later confirmed)
 
-Minmax used $\beta=0.01$; baseline used $\beta=0.2$ — a **20×** difference (see [Design choices](/book/phase1/03-design-choices.md)). With $\beta=0.01$, the KL term barely anchors the PPO objective. Minmax races toward the Detoxify-maximising mode within ~100 steps (entropy $< 1$ by step 95).
+Minmax used $\beta=0.01$; baseline used $\beta=0.2$ — a **20×** difference (see [Design choices](/worklog/phase1/03-design-choices.md)). With $\beta=0.01$, the KL term barely anchors the PPO objective. Minmax races toward the Detoxify-maximising mode within ~100 steps (entropy $< 1$ by step 95).
 
 **Structural problem for MinMax.** The penalty only fires for responses with toxicity $> 0.3$ (reward $< 0.4$). "Advertisements" has toxicity $\approx 0.001$, so $R_{\text{unsafe}}$ **never triggers**. Once the policy lives in that mode, the safety mechanism has been optimised away.
 
@@ -243,4 +243,4 @@ Under matched environment and KL, Minmax and baseline are essentially tied (2.0%
 | Matched $\beta$ is mandatory for A/B | $\beta=0.01$ vs $0.2$ comparisons are confounded |
 | Eval decoding must be stated | Greedy vs sample changes baseline Advertisements 56% → 3% |
 
-Return to the [Phase 1 overview](/book/phase1/README.md), or jump to the one-page summary in [Phase 1 in one chapter](/book/02-phase1.md) and then Phase 2.
+Return to the [Phase 1 overview](/worklog/phase1/README.md), or jump to the one-page summary in [Phase 1 in one chapter](/worklog/02-phase1.md) and then Phase 2.

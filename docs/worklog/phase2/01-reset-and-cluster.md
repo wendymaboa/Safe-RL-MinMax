@@ -1,10 +1,10 @@
 # 01 — Reset and cluster
 
-Source sessions: 1–3 · Full text: [/book/worklogs/phase2.md](/book/worklogs/phase2.md)
+Source sessions: 1–3 · Full text: [/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md)
 
 *Sessions 1–3 · 2026-08-18*
 
-Before any Qwen experiment, Phase 2 had to answer three boring questions honestly: Is the vendored tree pristine? What GPUs can we actually use? Can we even import the stack? The chronological Did / Found / Concluded trail is in the [Phase 2 worklog mirror](/book/worklogs/phase2.md).
+Before any Qwen experiment, Phase 2 had to answer three boring questions honestly: Is the vendored tree pristine? What GPUs can we actually use? Can we even import the stack? The chronological Did / Found / Concluded trail is in the [Phase 2 worklog mirror](/worklog/worklogs/phase2.md).
 
 ```mermaid
 flowchart TB
@@ -58,9 +58,9 @@ flowchart LR
   Login[Login node<br/>RTX 2060 SUPER] -. not for training .-> Dev
 ```
 
-**Policy locked:** real runs go on **biggpu**; all development and smoke-testing go on **bigbatch** first, per the cluster’s own escalation etiquette. Memory budget for the target architecture (see [Session 4](/book/phase2/02-lora-and-mkl.md)) is ~20 GB of weights, which fits one 48 GB RTX 8000 comfortably and does *not* fit bigbatch’s 24 GB with the 7B reward model resident.
+**Policy locked:** real runs go on **biggpu**; all development and smoke-testing go on **bigbatch** first, per the cluster’s own escalation etiquette. Memory budget for the target architecture (see [Session 4](/worklog/phase2/02-lora-and-mkl.md)) is ~20 GB of weights, which fits one 48 GB RTX 8000 comfortably and does *not* fit bigbatch’s 24 GB with the 7B reward model resident.
 
-Findings were written up as a reference doc (`mscluster` Field Guide) so this does not have to be rediscovered. *(Sessions [12–13](/book/phase2/04-reward-cost-and-gpu.md) later revise the biggpu hardware picture — the Feb 2024 guide’s Quadro estate is mostly still accurate, with one faulty Blackwell node mixed in.)*
+Findings were written up as a reference doc (`mscluster` Field Guide) so this does not have to be rediscovered. *(Sessions [12–13](/worklog/phase2/04-reward-cost-and-gpu.md) later revise the biggpu hardware picture — the Feb 2024 guide’s Quadro estate is mostly still accurate, with one faulty Blackwell node mixed in.)*
 
 ## Session 3 — Environment build, and five ways it failed
 
@@ -74,7 +74,7 @@ Five distinct failures, in order:
 | 2 | `conda: command not found` inside `sbatch` | Batch jobs run a *non-interactive* shell, which skips the conda-init block in `.bashrc` | Source `$HOME/miniconda3/etc/profile.d/conda.sh` by absolute path at the top of every job |
 | 3 | `CondaToSNonInteractiveError` | Recent conda refuses non-interactive env creation until `pkgs/main` and `pkgs/r` ToS are accepted | One-time accept |
 | 4 | Silent cascade into the base env | Job script had no `set -e`, so after `conda env create` failed at (3), execution continued: `conda activate` failed, and `pip install peft` ran against the node’s *system* Python — `externally-managed-environment`, later ~3 GB of unpinned CUDA wheels into base | **`set -euo pipefail` is now mandatory in every job script** |
-| 5 | `ImportError: libtorch_cpu.so: undefined symbol: iJIT_NotifyEvent` | MKL ≥ 2024.1 removed the ittnotify symbols PyTorch links against | Pin `mkl=2024.0.0` *(Session 6 later shows this pin is not solvable in place — see [02](/book/phase2/02-lora-and-mkl.md))* |
+| 5 | `ImportError: libtorch_cpu.so: undefined symbol: iJIT_NotifyEvent` | MKL ≥ 2024.1 removed the ittnotify symbols PyTorch links against | Pin `mkl=2024.0.0` *(Session 6 later shows this pin is not solvable in place — see [02](/worklog/phase2/02-lora-and-mkl.md))* |
 
 **Also found:** the solver installed `transformers 5.15.0`, because upstream’s recipe says only `transformers >= 4.37` with no upper bound. safe-rlhf imports `from transformers.tokenization_utils import PaddingStrategy, TruncationStrategy`, which 5.x moved.
 
@@ -99,8 +99,8 @@ flowchart TD
 
 This independently re-derives the same `transformers` constraint Phase 1 had applied — the pin was correct then and correct now; only the Detoxify/Minmax code alongside it was Phase-1-specific.
 
-**Status at end of Session 3:** environment fix job submitted; verification (`torch.cuda.is_available()`, device count, the `tokenization_utils` import) **not yet confirmed**. Confirmation lands when the MKL wall is actually cleared in [Session 6](/book/phase2/02-lora-and-mkl.md).
+**Status at end of Session 3:** environment fix job submitted; verification (`torch.cuda.is_available()`, device count, the `tokenization_utils` import) **not yet confirmed**. Confirmation lands when the MKL wall is actually cleared in [Session 6](/worklog/phase2/02-lora-and-mkl.md).
 
 ---
 
-**Next:** [02 — LoRA and the MKL wall](/book/phase2/02-lora-and-mkl.md) · [Phase 2 map](/book/phase2/README.md)
+**Next:** [02 — LoRA and the MKL wall](/worklog/phase2/02-lora-and-mkl.md) · [Phase 2 map](/worklog/phase2/README.md)
