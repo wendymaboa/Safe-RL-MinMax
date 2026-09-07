@@ -1,4 +1,5 @@
 * [Worklog](/worklog/README.md)
 * [Phase 1](/worklog/phase1/README.md)
 * [Phase 2](/worklog/phase2/README.md)
+* [Materials](https://github.com/wendymaboa/Safe-RL-MinMax/tree/main/docs/materials)
 * [Repo](https://github.com/wendymaboa/Safe-RL-MinMax)

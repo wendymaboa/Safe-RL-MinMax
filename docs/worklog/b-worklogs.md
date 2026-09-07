@@ -46,4 +46,4 @@ GitHub blob links (for browsing outside Docsify):
 
 - `safe-rlhf/results/stage5_runA/` — archived Run A metrics & generations
 - `docs/Slides/` — presentation decks
-- `docs/phase_plan.pdf`, `docs/mscluster_commands.pdf` — planning / ops PDFs
+- `docs/materials/` — proposals, HTML decks, notebooks, ops PDFs (`phase_plan`, `mscluster_*`)
