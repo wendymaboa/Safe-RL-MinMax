@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Safe RL + MinMax — Research Textbook</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="A textbook-style guide to the Safe RL + MinMax research project: Phase 1 Detoxify lessons, Phase 2 Safe RLHF on Qwen+LoRA, and the A/B/C run design." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css" />
+  <link rel="stylesheet" href="assets/textbook.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="app">Loading textbook…</div>
+  <script>
+    window.$docsify = {
+      name: 'Safe RL + MinMax',
+      nameLink: '#/',
+      repo: 'wendymaboa/Safe-RL-MinMax',
+      homepage: 'book/README.md',
+      loadSidebar: true,
+      loadNavbar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      relativePath: true,
+      search: {
+        placeholder: 'Search the textbook',
+        noData: 'No results',
+        depth: 4,
+      },
+      alias: {
+        '/.*/_sidebar.md': '/_sidebar.md',
+        '/.*/_navbar.md': '/_navbar.md',
+      },
+      markdown: {
+        renderer: {
+          code: function (code, lang) {
+            if (lang === 'mermaid') {
+              var id = 'mermaid-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
+              var containerId = id + '-wrap';
+              if (window.mermaid) {
+                mermaid.render(id, code).then(function (out) {
+                  var el = document.getElementById(containerId);
+                  if (el) el.innerHTML = out.svg;
+                }).catch(function (err) {
+                  var el = document.getElementById(containerId);
+                  if (el) el.textContent = 'Mermaid error: ' + err;
+                });
+              }
+              return '<div class="mermaid-wrap" id="' + containerId + '">Rendering diagram…</div>';
+            }
+            return this.origin.code.apply(this, arguments);
+          },
+        },
+      },
+      plugins: [
+        function (hook) {
+          hook.doneEach(function () {
+            if (window.mermaid) mermaid.init(undefined, '.mermaid');
+          });
+        },
+      ],
+    };
+  </script>
+  <script src="//cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      securityLevel: 'loose',
+      themeVariables: {
+        primaryColor: '#e8eef5',
+        primaryTextColor: '#1a2332',
+        primaryBorderColor: '#3d5a80',
+        lineColor: '#3d5a80',
+        secondaryColor: '#f4f1ea',
+        tertiaryColor: '#ffffff',
+        fontFamily: 'Source Sans 3, sans-serif',
+      },
+    });
+  </script>
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css" />
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/plugins/zoom-image.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-katex@1/dist/docsify-katex.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-python.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+</body>
+</html>
