@@ -1,17 +1,38 @@
 ﻿# Safe-RL-MinMax
 
-Research workspace for safe reinforcement learning with a MinMax penalty, including proposal materials, experiments, and the PKU Safe RLHF framework.
+Research workspace for safe reinforcement learning with a MinMax penalty: Phase 1 (GPT-2 + Detoxify), Phase 2 (Qwen + LoRA + PKU Safe RLHF), proposal materials, and a Docsify worklog site.
 
-## Repository layout
+## Layout
 
-| Path | Description |
-|------|-------------|
-| `csam-template/` | Active Wits CSAM LaTeX proposal (source of truth for the written proposal) |
-| `latex-proposal/` | Earlier / archived proposal materials |
-| `ppo_minmax_experiment/` | PPO + MinMax penalty experiment on GPT-2 with Detoxify / BeaverTails |
-| `safe-rlhf/` | PKU-Alignment Safe RLHF (Beaver) framework — vendored reference |
+| Path | Role |
+|------|------|
+| [`ppo_minmax_experiment/`](ppo_minmax_experiment/) | **Phase 1** — GPT-2 + Detoxify + MinMax (`worklog.md`) |
+| [`safe-rlhf/`](safe-rlhf/) | **Phase 2** — vendored PKU Safe RLHF + Qwen/LoRA (`worklog.md`, Stage 5 A/B/C) |
+| [`docs/worklog/`](docs/worklog/) | Docsify site — full worklog mirrors + guided notes |
+| [`docs/materials/`](docs/materials/) | Proposals, decks, notebooks, ops PDFs |
+| [`docs/Slides/`](docs/Slides/) | Supervisor / progress slide decks |
+| [`scripts/`](scripts/) | Repo helpers (e.g. sync worklogs → Pages) |
+| [`csam-template/`](csam-template/) | Active Wits CSAM LaTeX proposal |
+| [`latex-proposal/`](latex-proposal/) | Earlier / archived proposal materials |
 
-## Quick start (experiment)
+Root stays minimal: `README.md`, `.gitignore`, and the folders above.
+
+## Worklog site (GitHub Pages)
+
+| On site | Source file |
+|---|---|
+| `#/worklog/worklogs/phase1` | `ppo_minmax_experiment/worklog.md` |
+| `#/worklog/worklogs/phase2` | `safe-rlhf/worklog.md` |
+
+```bash
+python scripts/sync_worklogs_to_docs.py   # after editing either worklog
+python -m http.server 4173 --directory docs
+```
+
+- Pages: **Settings → Pages → `main` / `/docs`**
+- URL: https://wendymaboa.github.io/Safe-RL-MinMax/
+
+## Quick start (Phase 1 experiment)
 
 ```bash
 cd ppo_minmax_experiment
@@ -20,28 +41,9 @@ pip install -r requirements.txt
 python run_experiment.py --smoke-test --seed 42
 ```
 
-See `ppo_minmax_experiment/README.md` for full training, evaluation, and design notes.
-
-## Research worklog (Docsify + GitHub Pages)
-
-Guided notes + **full mirrors of both worklogs** live under `docs/`:
-
-| On site | Source file |
-|---|---|
-| `#/worklog/worklogs/phase1` | `ppo_minmax_experiment/worklog.md` |
-| `#/worklog/worklogs/phase2` | `safe-rlhf/worklog.md` |
-
-After editing either worklog:
-
-```bash
-python scripts/sync_worklogs_to_docs.py
-```
-
-- Preview: `python -m http.server 4173 --directory docs`
-- Pages: **Settings → Pages → `main` / `/docs`**
-- URL: https://wendymaboa.github.io/Safe-RL-MinMax/
+Phase 2 cluster launches live under `safe-rlhf/scripts/` (e.g. `stage5-runA-*.sbatch`).
 
 ## Notes
 
-- Large experiment artifacts (checkpoints, local model weights, run outputs) are gitignored.
-- IDE folders such as `.cursor/` are not tracked.
+- Checkpoints, local weights, and large run outputs are gitignored.
+- `.cursor/` is not tracked.
