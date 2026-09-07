@@ -1,6 +1,8 @@
 # 2. Phase 1 in one chapter
 
-Phase 1 lives in `ppo_minmax_experiment/`. It is **closed**. This chapter is the durable summary so Phase 2 readers do not need the full notebook.
+Phase 1 lives in `ppo_minmax_experiment/`. It is **closed**. This chapter is the short durable summary.
+
+For the full session-by-session textbook (Sessions 1–18, diagrams, tables), start at [/book/phase1/](/book/phase1/README.md).
 
 ## Setup
 

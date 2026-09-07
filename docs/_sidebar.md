@@ -1,25 +1,29 @@
-* [Home](book/README.md)
-* [How to read this book](book/00-how-to-read.md)
+* [Home](/book/README.md)
+* [How to read this book](/book/00-how-to-read.md)
 
-**Part I — Framing**
-* [1. The research question](book/01-research-question.md)
-* [2. Phase 1 in one chapter](book/02-phase1.md)
+**Phase 1 — GPT-2 + Detoxify**
+* [Overview](/book/phase1/README.md)
+* [1. Pilot & pipeline bugs](/book/phase1/01-pilot-and-bugs.md)
+* [2. Saturation of MinMax](/book/phase1/02-saturation.md)
+* [3. Design choices](/book/phase1/03-design-choices.md)
+* [4. “Advertisements” collapse](/book/phase1/04-advertisements-collapse.md)
 
-**Part II — Building the pipeline**
-* [3. Framework & LoRA](book/03-framework-lora.md)
-* [4. Reward vs cost](book/04-reward-vs-cost.md)
-* [5. Cluster & environment](book/05-cluster.md)
+**Phase 2 — Qwen + Safe RLHF**
+* [Overview](/book/phase2/README.md)
+* [1. Reset & cluster](/book/phase2/01-reset-and-cluster.md)
+* [2. LoRA & the MKL wall](/book/phase2/02-lora-and-mkl.md)
+* [3. Template & PPO loop](/book/phase2/03-template-and-ppo-loop.md)
+* [4. Reward, cost & GPUs](/book/phase2/04-reward-cost-and-gpu.md)
+* [5. Run A — reward only](/book/phase2/05-run-a.md)
+* [6. Run B — fixed gate](/book/phase2/06-run-b.md)
+* [7. Run C — MinMax](/book/phase2/07-run-c.md)
 
-**Part III — Stage 5 experiments**
-* [6. The A / B / C design](book/06-abc-design.md)
-* [7. Run A — reward only](book/07-run-a.md)
-* [8. Run B — fixed gate](book/08-run-b.md)
-* [9. Run C — Minmax](book/09-run-c.md)
-
-**Part IV — Synthesis**
-* [10. What we can claim](book/10-claims.md)
-* [11. Open questions](book/11-open-questions.md)
+**Synthesis**
+* [What we can claim](/book/10-claims.md)
+* [Open questions](/book/11-open-questions.md)
 
 **Back matter**
-* [Appendix A — Updating this book](book/a-updating.md)
-* [Appendix B — Raw worklogs](book/b-worklogs.md)
+* [Updating this book](/book/a-updating.md)
+* [Raw worklogs](/book/b-worklogs.md)
+* [Research question (short)](/book/01-research-question.md)
+* [A/B/C design (short)](/book/06-abc-design.md)
