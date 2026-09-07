@@ -7,3 +7,7 @@
 *.jpeg binary
 *.gif binary
 *.pdf binary
+
+# Result artifacts (results/), not covered by upstream's rules above.
+*tfevents* binary
+*.safetensors binary
