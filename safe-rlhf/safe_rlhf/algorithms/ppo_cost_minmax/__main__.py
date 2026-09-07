@@ -12,19 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""RL algorithms for RLHF."""
+"""The main training script to train PPO with a threshold-gated Minmax cost penalty."""
 
-from safe_rlhf.algorithms.ppo import PPOTrainer
-from safe_rlhf.algorithms.ppo_cost_gate import PPOCostGateTrainer
-from safe_rlhf.algorithms.ppo_cost_minmax import PPOCostMinmaxTrainer
-from safe_rlhf.algorithms.ppo_lag import PPOLagTrainer
-from safe_rlhf.algorithms.ppo_reward_shaping import PPORewardShapingTrainer
+import sys
+
+from safe_rlhf.algorithms.ppo_cost_minmax.main import main
 
 
-__all__ = [
-    'PPOTrainer',
-    'PPOCostGateTrainer',
-    'PPOCostMinmaxTrainer',
-    'PPOLagTrainer',
-    'PPORewardShapingTrainer',
-]
+if __name__ == '__main__':
+    sys.exit(main())

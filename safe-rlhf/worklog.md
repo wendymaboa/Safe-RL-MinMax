@@ -1011,6 +1011,44 @@ reflect that it fires *and helps*, just not enough to arrest the average-case dr
 
 ---
 
+## Session 18 — Run C implementation: cost-gated Minmax
+
+**Date:** 2026-09-07
+
+**Did:** Implemented Stage 5 Run C as `safe_rlhf.algorithms.ppo_cost_minmax`, sharing
+Run B's cost-model plumbing and the identical gate (`cost > threshold`). The only
+deliberate difference from B is the penalty magnitude: fixed `--penalty_magnitude`
+(-2.0) there, self-calibrated `R_unsafe = V_MIN − V_MAX` here.
+
+**Design choices locked in for the B-vs-C comparison:**
+
+| Knob | Choice | Why |
+|---|---|---|
+| Detector / gate | `beaver-7b-unified-cost`, `cost > 0` | identical to B |
+| Bound source | reward-model end scores (`--bound_source reward`) | Phase 1's stable default; critic optional after warmup |
+| Bound scope | global | category scope deferred; PKU categories not plumbed through the PPO batch |
+| Penalty floor | `-50.0` (matches `clip_range_score`) | Phase 1 floored at −2 because Detoxify was bounded; flooring here at −2 would make "do the bounds move past B?" unanswerable |
+| Init | `V_MIN = V_MAX = 0` | Beaver rewards are unbounded; seeding ±1 invents a Detoxify-shaped scale |
+
+**Files:**
+
+- `safe_rlhf/algorithms/ppo_cost_minmax/` — `minmax_state.py`, `trainer.py` (subclasses
+  `PPOCostGateTrainer`, overrides `rl_step` only), `main.py`, package entrypoints
+- `scripts/stage5-runC-cost-minmax.sbatch` — matched to Run B except module, output dir,
+  master port, and Minmax args
+- `scripts/inspect-runC.sbatch` — same prompts/seeds/checkpoints as A and B
+- `scripts/test_cost_minmax_state.py` — CPU-only unit tests for bound update / floor /
+  warmup / state_dict (passed locally)
+
+**Logged every step (beyond B):** `train/v_min`, `train/v_max`, `train/r_unsafe`,
+`train/r_unsafe_raw`, `train/floor_active`. Latest bounds also written to
+`output_dir/minmax_state.json`.
+
+**Not yet run on the cluster.** Next: sync the new module to `~/Safe-RL-MinMax`,
+`sbatch scripts/stage5-runC-cost-minmax.sbatch`, then inspect + cost-rescore against A/B.
+
+---
+
 ## Open tasks
 
 **Blocking the first real run:**
@@ -1035,10 +1073,10 @@ reflect that it fires *and helps*, just not enough to arrest the average-case dr
 
 **Decisions reopened by Sessions 11–12:**
 
-- [ ] **Load the cost model as the Minmax detector.** Previously deferred as out of scope;
-      Session 11 shows the reward signal cannot serve as a safety gate. Needs
-      `--cost_model_name_or_path` plumbed through, and the cost model is LLaMA-family so
-      it uses the same `batch_retokenize` bridge as the reward model.
+- [x] **Load the cost model as the Minmax detector.** Done across Sessions 15–18: Run B
+      (`ppo_cost_gate`) and Run C (`ppo_cost_minmax`) both take
+      `--cost_model_name_or_path`, retokenize via the same `batch_retokenize` bridge as
+      the reward model, and gate on `cost > threshold`.
 - [x] **Stage 5 target chosen (Session 13): biggpu, on the Quadro RTX 8000 nodes,
       excluding `mscluster111`.** 48 GB per card fits reward + cost + actor + critic
       (~34 GB) with headroom. Use the original `safe-rlhf` env, not `safe-rlhf-cu128`.
@@ -1059,7 +1097,8 @@ reflect that it fires *and helps*, just not enough to arrest the average-case dr
       cost from drifting upward across training, but produces measurably and increasingly
       safer output than the ungated Run A control on the matched probe, with a genuine
       qualitative pivot away from the harmful request by checkpoint-950.
-- [ ] **Run C: Minmax when cost > 0**, sharing B's cost-model plumbing.
+- [x] **Run C: Minmax when cost > 0**, sharing B's cost-model plumbing. **Implemented
+      (Session 18)** as `algorithms/ppo_cost_minmax`; not yet launched on the cluster.
 - [ ] Watch whether PKU's reward model — trained on Alpaca-7B responses — behaves sensibly
       when scoring Qwen responses. A distribution gap here would be a real finding about
       transplanting a reward model across actor families.
