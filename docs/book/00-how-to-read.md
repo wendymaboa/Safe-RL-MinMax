@@ -30,4 +30,4 @@ Chapters 6 → 8 → 9 → 11.
 
 ## Edition note
 
-This edition was first drafted from Phase 2 Sessions 1–18 and the Phase 1 closing summary. Update policy: [Appendix A](a-updating.md).
+This edition was first drafted from Phase 2 Sessions 1–18 and the Phase 1 closing summary. Update policy: [Appendix A](/book/a-updating.md).

@@ -4,10 +4,11 @@
   <meta charset="UTF-8" />
   <title>Safe RL + MinMax — Research Textbook</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-  <meta name="description" content="A textbook-style guide to the Safe RL + MinMax research project: Phase 1 Detoxify lessons, Phase 2 Safe RLHF on Qwen+LoRA, and the A/B/C run design." />
+  <meta name="description" content="Textbook-style reconstruction of the Safe RL + MinMax research worklogs, with diagrams." />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css" />
   <link rel="stylesheet" href="assets/textbook.css" />
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -15,20 +16,35 @@
 <body>
   <div id="app">Loading textbook…</div>
   <script>
+    // Works for both local `serve docs` (/) and GitHub project Pages (/Safe-RL-MinMax/).
+    function docsifyBasePath() {
+      var path = window.location.pathname || '/';
+      if (path.endsWith('index.html')) {
+        path = path.slice(0, -'index.html'.length);
+      }
+      if (!path.endsWith('/')) {
+        path = path.replace(/\/[^/]*$/, '/');
+      }
+      return path || '/';
+    }
+
     window.$docsify = {
       name: 'Safe RL + MinMax',
       nameLink: '#/',
       repo: 'wendymaboa/Safe-RL-MinMax',
+      basePath: docsifyBasePath(),
       homepage: 'book/README.md',
       loadSidebar: true,
       loadNavbar: true,
-      subMaxLevel: 3,
+      subMaxLevel: 2,
       auto2top: true,
-      relativePath: true,
+      // MUST stay false: with true, sidebar links become book/book/... after the first click → 404.
+      relativePath: false,
       search: {
         placeholder: 'Search the textbook',
         noData: 'No results',
         depth: 4,
+        pathNamespaces: ['/', '/book', '/book/phase1', '/book/phase2'],
       },
       alias: {
         '/.*/_sidebar.md': '/_sidebar.md',
@@ -37,8 +53,12 @@
       markdown: {
         renderer: {
           code: function (code, lang) {
+            if (typeof code === 'object' && code !== null) {
+              lang = code.lang;
+              code = code.text;
+            }
             if (lang === 'mermaid') {
-              var id = 'mermaid-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
+              var id = 'mmd-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
               var containerId = id + '-wrap';
               if (window.mermaid) {
                 mermaid.render(id, code).then(function (out) {
@@ -55,13 +75,6 @@
           },
         },
       },
-      plugins: [
-        function (hook) {
-          hook.doneEach(function () {
-            if (window.mermaid) mermaid.init(undefined, '.mermaid');
-          });
-        },
-      ],
     };
   </script>
   <script src="//cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -81,7 +94,6 @@
       },
     });
   </script>
-  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css" />
   <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/plugins/zoom-image.min.js"></script>
