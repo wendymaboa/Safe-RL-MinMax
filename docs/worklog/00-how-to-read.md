@@ -28,8 +28,8 @@ Worklog Phase 1 → Worklog Phase 2, or guided notes in sidebar order.
 **Examiner (claims only)**  
 [/worklog/10-claims.md](/worklog/10-claims.md) → skim [/worklog/phase1/04-advertisements-collapse.md](/worklog/phase1/04-advertisements-collapse.md) and [/worklog/phase2/05-run-a.md](/worklog/phase2/05-run-a.md)–[06](/worklog/phase2/06-run-b.md).
 
-**Continuing Run C**  
-[/worklog/worklogs/phase2.md](/worklog/worklogs/phase2.md) Session 18 → [/worklog/phase2/07-run-c.md](/worklog/phase2/07-run-c.md).
+**Run C results**  
+[/worklog/phase2/07-run-c.md](/worklog/phase2/07-run-c.md) → [/worklog/10-claims.md](/worklog/10-claims.md) → remaining open: cost rescore in [/worklog/11-open-questions.md](/worklog/11-open-questions.md).
 
 ## Conventions in guided notes
 

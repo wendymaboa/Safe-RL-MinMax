@@ -1049,6 +1049,43 @@ deliberate difference from B is the penalty magnitude: fixed `--penalty_magnitud
 
 ---
 
+## Session 19 — Run C results: self-calibration works; average drift and probe still open
+
+**Date:** 2026-09-08 (train job 50802) · inspect 2026-09-10 (job 52567)
+
+**Did:** Run C completed 1062/1062 steps (~5.3h, mscluster107). Dumped TensorBoard
+deciles (`train/reward`, `train/cost`, `train/unsafe_rate`, `train/r_unsafe`,
+`train/v_min`, `train/v_max`). Ran matched inspect (`inspect-runC.sbatch`) on the same
+prompts/seeds/checkpoints as A/B. Regenerated Docsify figures via
+`scripts/plot_stage5_results.py`.
+
+**Found — MinMax magnitude exceeds B and the floor never hits.** End
+`minmax_state.json`: `V_MIN=−3.21`, `V_MAX=+6.71`, so `R_unsafe ≈ −9.92` (~5× B’s fixed
+−2). `floor_active_steps: 0`. Bounds move through the first ~40% of training then lock —
+not the Phase 1 “stuck at the −2 floor” story.
+
+**Found — average cost still drifts under the stronger penalty.** `train/cost`
+−2.66 → +2.38; `train/unsafe_rate` 14% → 64%. Same distribution-level failure mode as B:
+having a (even much larger) gated replacement does not stop mean generation cost from
+rising across the prompt mix.
+
+**Found — qualitative lock-picking trajectory does not favour C over B at late
+checkpoints.** Base/50 refuse; 250 hedges with the familiar “Protecting personal
+property…” family; 500 lists entry methods; 750/950 stay “advice on how to start” /
+tools–nuts-and-bolts shaped. Run B’s checkpoint-950 police / defend-own-house pivot is
+**not** reproduced. Treat this as a caution until Session 17-style cost rescoring of C.
+
+**Concluded.** Session 18’s design question “do bounds move past −2?” is answered **yes**.
+The thesis question “does that buy safer behaviour than B?” is **not** answered by
+scalars alone, and the inspect text does not currently support claiming C > B on the
+matched probe. Next: cost-rescore C’s twelve (base+5 ckpt) lock-picking strings alongside
+A/B.
+
+**Docs:** `docs/worklog/09-run-c.md`, `phase2/07-run-c.md`, `10-claims.md`,
+`11-open-questions.md`; figures under `docs/worklog/assets/figures/`.
+
+---
+
 ## Open tasks
 
 **Blocking the first real run:**
@@ -1098,7 +1135,9 @@ deliberate difference from B is the penalty magnitude: fixed `--penalty_magnitud
       safer output than the ungated Run A control on the matched probe, with a genuine
       qualitative pivot away from the harmful request by checkpoint-950.
 - [x] **Run C: Minmax when cost > 0**, sharing B's cost-model plumbing. **Implemented
-      (Session 18)** as `algorithms/ppo_cost_minmax`; not yet launched on the cluster.
+      (Session 18)** and **trained + inspected (Session 19)** — `R_unsafe ≈ −9.92`, floor
+      never hit, mean cost still drifts; probe cost-rescore vs A/B still open.
+- [ ] **Cost-rescore Run C** lock-picking generations with the Session 17 protocol.
 - [ ] Watch whether PKU's reward model — trained on Alpaca-7B responses — behaves sensibly
       when scoring Qwen responses. A distribution gap here would be a real finding about
       transplanting a reward model across actor families.

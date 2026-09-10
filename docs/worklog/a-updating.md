@@ -32,7 +32,8 @@ Do **not** hand-edit the mirrors as the primary source — they will be overwrit
 |---|---|
 | New session in a worklog | Run `sync_worklogs_to_docs.py`; expand or correct the matching chapter |
 | New session changes a claim | Rewrite the affected chapter; bump the home “Status at a glance” table |
-| Run C finishes | Fill Chapter 9 / [/worklog/phase2/07-run-c.md](/worklog/phase2/07-run-c.md) results; refresh Chapters 10–11 |
+| Run C finishes | Done (Session 19) — Ch. 9 / phase2/07 + Ch. 10–11 updated; regenerate figs with `python scripts/plot_stage5_results.py` |
+| Run C cost rescore | Add A/B/C cost table to Ch. 9–10; extend `plot_stage5_results.py` |
 | Corrected earlier conclusion | Update chapter in place; add a short “Correction” note pointing to the worklog session |
 | New diagram-worthy architecture | Add/adjust Mermaid in the relevant chapter |
 
