@@ -64,6 +64,12 @@ Self-calibration exceeded B’s fixed −2 within the first decile and locked ne
 
 C peaks higher mid-run (~+1.86) then ends lower (~+1.21) than A’s plateau (~+1.40).
 
+### At the \(R_{\text{unsafe}}\) lock (checkpoint-500)
+
+![At lock comparison](../assets/figures/stage5_at_runC_lock.png)
+
+Same training stage for A/B/C: C’s penalty has just finished settling (~−9.92). Left panel = lock-picking probe cost (A/B known; C after `rescore-lockpicking.sbatch`). Right = gated penalty magnitude B vs C.
+
 ## Session 19 — qualitative inspect
 
 ![Lock-picking A/B/C](../assets/figures/stage5_lockpick_trajectory_ABC.png)
