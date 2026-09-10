@@ -33,9 +33,17 @@ Self-calibration **did** move past B’s fixed −2. End state from `minmax_stat
 
 ![Run C cost and unsafe rate](assets/figures/stage5_runC_cost_unsafe.png)
 
-![Reward A vs C](assets/figures/stage5_reward_A_vs_C.png)
+![At Run C R_unsafe lock](assets/figures/stage5_at_runC_lock.png)
 
-| Decile | reward | cost | unsafe_rate | \(r_{\text{unsafe}}\) |
+\(R_{\text{unsafe}}\) locks by the **40–50%** decile; **checkpoint-500** is the matched A/B/C save right after that. Probe costs above: A/B from Session 17; fill Run C with:
+
+```bash
+# on cluster (after git pull)
+sbatch scripts/rescore-lockpicking.sbatch
+# then locally:
+python scripts/plot_stage5_at_lock.py --probe-cost-c <Run C value at checkpoint-500>
+```
+
 |---|---|---|---|---|
 | 0–10% | +0.43 | −2.66 | 14% | −7.83 |
 | 40–50% | +1.67 | +1.30 | 54% | −9.92 |
