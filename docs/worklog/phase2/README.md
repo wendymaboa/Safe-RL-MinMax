@@ -39,7 +39,7 @@ flowchart TB
 |---|---|---|---|---|
 | **A** | Reward only | Plain RLHF with no safety signal | Complete | [05-run-a](/worklog/phase2/05-run-a.md) |
 | **B** | Reward + fixed `−2` when `cost > 0` | What *having* a safety signal buys | Complete + rescored | [06-run-b](/worklog/phase2/06-run-b.md) |
-| **C** | Reward + MinMax when `cost > 0` | What self-calibration buys over a fixed penalty | Implemented; **not trained** | [07-run-c](/worklog/phase2/07-run-c.md) |
+| **C** | Reward + MinMax when `cost > 0` | What self-calibration buys over a fixed penalty | **Trained + inspected**; cost rescore pending | [07-run-c](/worklog/phase2/07-run-c.md) |
 
 A alone cannot support a claim about MinMax. Without B, “Minmax improved safety” is answerable with “you added a harm detector.”
 
@@ -51,7 +51,7 @@ A alone cannot support a claim about MinMax. Without B, “Minmax improved safet
 4. [Reward, cost, and GPU estate](/worklog/phase2/04-reward-cost-and-gpu.md) — Sessions 11–13  
 5. [Run A](/worklog/phase2/05-run-a.md) — Sessions 14–15  
 6. [Run B](/worklog/phase2/06-run-b.md) — Sessions 16–17  
-7. [Run C](/worklog/phase2/07-run-c.md) — Session 18  
+7. [Run C](/worklog/phase2/07-run-c.md) — Sessions 18–19  
 
 ## Architecture snapshot (locked by Session 4)
 
