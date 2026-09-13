@@ -1,5 +1,6 @@
 * [Home](/worklog/README.md)
 * [How to read these worklogs](/worklog/00-how-to-read.md)
+* [Foundations — RM vs CM, MinMax validity](/worklog/fundamentals.md)
 
 **Full worklogs (source of truth)**
 * [Phase 1 worklog](/worklog/worklogs/phase1.md)
