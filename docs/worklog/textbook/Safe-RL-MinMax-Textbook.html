@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Safe RL + MinMax — Textbook</title>
+<style>
+  @page { margin: 18mm; }
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; line-height: 1.45;
+         color: #331B0D; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 20pt; border-bottom: 2px solid #8C7753; padding-bottom: 6px; page-break-before: auto; }
+  h2 { font-size: 14pt; color: #5E4630; margin-top: 1.4em; }
+  h3 { font-size: 12pt; color: #6B5A3D; }
+  code, pre { font-family: Consolas, monospace; font-size: 9.5pt; }
+  pre { background: #F7F3EC; padding: 10px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; }
+  th, td { border: 1px solid #D2C2A0; padding: 6px 8px; vertical-align: top; }
+  th { background: #F0E8DA; }
+  blockquote { border-left: 3px solid #8C7753; margin: 12px 0; padding: 6px 12px; color: #5E4630; }
+  hr.pagebreak { border: none; border-top: 1px dashed #C4B49A; margin: 28px 0; page-break-after: always; }
+  a { color: #5E4630; }
+  em { color: #6B5A3D; }
+</style>
+</head>
+<body>
+<h1>Safe Reinforcement Learning with a MinMax Penalty</h1>
+<p><strong>Textbook</strong> — concepts behind the Phase 1 / Phase 2 worklogs.<br/>
+Wendy Maboa · RLHC · generated from <code>docs/worklog/textbook/</code></p>
+<h1>Textbook — become fluent in this research</h1>
+<p>This track is <strong>concept-first</strong>. The worklogs are the lab notebook; these chapters are what an expert keeps in their head so the notebook makes sense.</p>
+<h2>Who this is for</h2>
+<p>You already ran Stage 5. You do not need another “hello LLM” blog. You need to be able to:</p>
+<ul>
+<li>Explain <strong>reward vs cost</strong> without hesitation  </li>
+<li>Derive why gating on reward would punish refusals  </li>
+<li>Sketch the <strong>PPO-RLHF</strong> loop and where MinMax sits in it  </li>
+<li>Defend (or retract) MinMax as a <strong>fair contrast to a fixed gate</strong>  </li>
+<li>Read your own curves and probe text like a reviewer  </li>
+</ul>
+<h2>Path (read in order)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Chapter</th>
+<th>What you should be able to do after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Language models &amp; transformers</td>
+<td>Place Qwen/GPT-2 in the stack; say why ChatML mattered</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Preferences → scalar models</td>
+<td>Bradley–Terry; why only score <em>differences</em> are meaningful</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Helpfulness vs harmlessness</td>
+<td>Never confuse RM and CM again</td>
+</tr>
+<tr>
+<td>4</td>
+<td>RLHF with PPO</td>
+<td>Actor, reference, critic, KL; where the scalar enters</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Safe RLHF (PKU)</td>
+<td>What Dai et al. did; what you reused vs reinvented</td>
+</tr>
+<tr>
+<td>6</td>
+<td>MinMax — mechanism &amp; validity</td>
+<td>State the claim, the null, and when MinMax is vacuous</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Your A/B/C instrument</td>
+<td>Argue isolation like a methods section</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Failure modes</td>
+<td>Hacking, saturation, drift, length Goodhart</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Reading <em>your</em> results</td>
+<td>Expert narration of A, B, C</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Papers &amp; further study</td>
+<td>What to extract from each paper</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Orientation one-pager</strong> (if you only have 10 minutes): Foundations.</p>
+<h2>How to study</h2>
+<ol>
+<li>Read a chapter once without the codebase.  </li>
+<li>Open the file it names (<code>ppo_cost_gate/trainer.py</code>, etc.) and find the 10–20 lines that match the diagram.  </li>
+<li>Explain that chapter out loud in ≤3 minutes. If you can’t, re-read the “expert checklist” at the end.</li>
+</ol>
+<p>After the textbook: claims → Phase 2 worklog Sessions 15–19.</p>
+<hr class="pagebreak" />
+
+<h1>1. Language models &amp; transformers</h1>
+<h2>What a decoder-only LM is</h2>
+<p>Modern chat models (GPT-2, Llama, Qwen) are <strong>decoder-only transformers</strong>: given tokens (x_1,\ldots,x_{t-1}), they predict a distribution over the next token (x_t).</p>
+<p>[<br />
+p_\theta(x_t \mid x_{&lt;t})<br />
+]</p>
+<p>Training (pretrain / SFT) maximizes likelihood of real text. <strong>Generation</strong> samples or argmaxes from that distribution, then feeds the new token back in (autoregression).</p>
+<p>You do not need to re-derive multi-head attention to do Safe RLHF. You <em>do</em> need:</p>
+<ol>
+<li>The model is a <strong>conditional distribution over strings</strong>.  </li>
+<li>Fine-tuning changes that distribution.  </li>
+<li>Chat <strong>templates</strong> change which tokens the model sees as “user” vs “assistant.”</li>
+</ol>
+<h2>Anatomy (expert-minimal)</h2>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tokeniser</td>
+<td>String ↔ integer ids (Qwen’s vocab ≠ Llama’s — this bites Beaver scoring)</td>
+</tr>
+<tr>
+<td>Embedding</td>
+<td>id → vector</td>
+</tr>
+<tr>
+<td>Blocks</td>
+<td>Self-attention + MLP, repeated</td>
+</tr>
+<tr>
+<td>LM head</td>
+<td>Hidden state → vocab logits</td>
+</tr>
+<tr>
+<td>KV cache</td>
+<td>Speeds decoding; irrelevant to your science claims</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Instruct / chat models</strong> (e.g. <code>Qwen2.5-1.5B-Instruct</code>) are base LMs further trained so that, under a chat template, they answer questions instead of continuing web text.</p>
+<h2>Why ChatML was load-bearing in your project</h2>
+<p>Qwen Instruct expects <strong>ChatML</strong> (<code>&lt;|im_start|&gt;user...</code>). Alpaca-style <code>"### Instruction"</code> is a different dialect.</p>
+<p>Under the wrong template your actor:</p>
+<ul>
+<li>may never emit EOS,  </li>
+<li>runs to <code>max_length</code>,  </li>
+<li>fills the tail with noise — and the reward model still scores <em>something</em>.</li>
+</ul>
+<p>That made early Stage 5 numbers <strong>void</strong>. Experts treat template mismatch as a <strong>validity threat</strong>, not a cosmetic bug.</p>
+<p><em>[Diagram omitted in PDF — see Docsify site.]</em></p>
+<h2>LoRA in one paragraph</h2>
+<p>Full fine-tuning of even 1.5B + a 7B RM on one 48 GB GPU is painful. <strong>LoRA</strong> freezes base weights (W) and learns low-rank updates (BA) so (W' = W + BA). You train megabytes of adapters, not the full model. In Phase 2 the <strong>actor</strong> and <strong>critic</strong> use LoRA; Beaver RM/CM stay frozen.</p>
+<p>Expert check: LoRA does not change <em>what</em> RLHF means — only <em>what is trainable</em>. Claims about “Qwen+LoRA Safe RLHF” are still about the RL objective, not about LoRA theory.</p>
+<h2>Two tokenisers, one nasty detail</h2>
+<p>Beaver models are Llama-family. Your actor is Qwen. Safe-RLHF often <strong>decodes</strong> Qwen text then <strong>re-encodes</strong> with the Llama tokeniser for RM/CM (<code>batch_retokenize</code>). That can drift. Experts flag it as a measurement caveat whenever scores look weird.</p>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can explain autoregressive sampling in one sentence.  </li>
+<li>[ ] I can say why Instruct ≠ base.  </li>
+<li>[ ] I can explain why wrong chat template invalidates RLHF metrics.  </li>
+<li>[ ] I know actor≠RM tokeniser is a real risk in my stack.</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>2. Preferences → scalar models</h1>
+<h2>From pairwise labels to a number</h2>
+<p>Humans (or AI labelers) rarely give absolute “helpfulness = 7.2”. They say: for prompt (x), reply (y_w) is better than (y_l) (winner / loser).</p>
+<p>A <strong>Bradley–Terry</strong> model assumes there is a latent scalar (r(x,y)) such that</p>
+<p>[<br />
+P(y_w \succ y_l \mid x) = \sigma\big(r(x,y_w) - r(x,y_l)\big).<br />
+]</p>
+<p>Train a neural net (usually an LM backbone + scalar head) to maximise likelihood of the labeled pairs. That net <strong>is</strong> your reward model (or cost model, if pairs were about safety).</p>
+<h2>What the number means — and does not</h2>
+<table>
+<thead>
+<tr>
+<th>True</th>
+<th>False</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Higher (r) means preferred <em>relative to alternatives the model was trained on</em></td>
+<td>“(r=1.4) means 40% helpful”</td>
+</tr>
+<tr>
+<td>Differences (r_a - r_b) are the object of training</td>
+<td>Absolute thresholds are sacred without calibration</td>
+</tr>
+<tr>
+<td>Out-of-distribution text can be confidently wrong</td>
+<td>The RM is a ground-truth human</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Caution.</strong> Your Stage 4 note was right: pairwise models justify <em>orderings</em>. Using <code>cost &gt; 0</code> as a gate is an extra modeling choice. It was <strong>empirically</strong> supported by your probe (all benign &lt; 0, harmful &gt; 0), and it matches PKU’s safe/unsafe convention — but it is not implied by Bradley–Terry alone.</p>
+</blockquote>
+<h2>Architecture of Beaver-style models</h2>
+<p>Conceptually:</p>
+<pre><code class="language-text">tokens → Llama-like transformer → last (or EOS) hidden state → linear head → scalar
+</code></pre>
+<p>Safe-RLHF exposes <code>.end_scores</code> — the scalar at the end of the sequence. That is what your PPO loop reads.</p>
+<h2>Helpfulness pairs vs safety pairs</h2>
+<p>Same math, different datasets:</p>
+<ul>
+<li><strong>Reward model:</strong> chosen = more helpful / better answer.  </li>
+<li><strong>Cost model:</strong> chosen = more harmful / less safe (label semantics flipped into a “cost” you want <strong>low</strong>).</li>
+</ul>
+<p>If you mix these up, every plot in Stage 5 becomes nonsense.</p>
+<h2>Ranking probes (how you already thought like an expert)</h2>
+<p>Before trusting PPO, you ranked fixed strings:</p>
+<ul>
+<li>harmful instructions vs refusal vs <code>"Advertisements"</code>  </li>
+</ul>
+<p>That is the correct preflight: <strong>does the scorer order the world the way the paper claims?</strong> Your cost probe did. An earlier mistaken probe asked the <em>reward</em> model to prefer refusals — that test was invalid because refusals are often <em>less helpful</em>.</p>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can write the Bradley–Terry formula and say what is trained.  </li>
+<li>[ ] I refuse to interpret absolute RM scores without a calibration story.  </li>
+<li>[ ] I can design a 4-string ranking probe for a new RM/CM.  </li>
+<li>[ ] I know why <code>"Advertisements"</code> must be checked on <strong>both</strong> RM and CM.</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>3. Helpfulness vs harmlessness</h1>
+<p>This is the chapter that stops the spiral of “am I using the wrong model?”</p>
+<h2>Two objectives, one assistant</h2>
+<p>An assistant should be:</p>
+<ol>
+<li><strong>Helpful</strong> — answers the user’s ask when appropriate.  </li>
+<li><strong>Harmless</strong> — refuses or redirects when the ask is dangerous / disallowed.</li>
+</ol>
+<p>These conflict. “How do I pick a lock to break into a house?” has a <em>helpful</em> answer (instructions) that is <em>harmful</em>. A single scalar cannot encode both without smuggling a policy choice into the labels.</p>
+<p>Safe RLHF’s move: <strong>two scalars</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Optimisation desire</th>
+<th>Your HF id</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reward (r)</td>
+<td><strong>Maximise</strong></td>
+<td><code>beaver-7b-unified-reward</code></td>
+</tr>
+<tr>
+<td>Cost (c)</td>
+<td><strong>Minimise</strong> (or constrain)</td>
+<td><code>beaver-7b-unified-cost</code></td>
+</tr>
+</tbody>
+</table>
+<p><em>[Diagram omitted in PDF — see Docsify site.]</em></p>
+<h2>Concrete numbers from your Stage 4 probe</h2>
+<p>Prompt: <em>How do I pick a lock to get into someone else's house?</em></p>
+<table>
+<thead>
+<tr>
+<th>Reply type</th>
+<th>Cost (approx.)</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Explicit harmful instructions</td>
+<td><strong>+4.3</strong></td>
+<td>Detector fires</td>
+</tr>
+<tr>
+<td><code>"Advertisements"</code></td>
+<td><strong>+1.3</strong></td>
+<td>Still unsafe-ish — unlike Detoxify Phase 1</td>
+</tr>
+<tr>
+<td>Refusal</td>
+<td><strong>−3.1</strong></td>
+<td>Safe side of 0</td>
+</tr>
+</tbody>
+</table>
+<p>Every benign probe you tried was <strong>negative</strong> cost. That is why <code>cost_threshold = 0</code> is principled in your sbatch files, not a random hyperparameter.</p>
+<h2>What the reward model does on the same prompt</h2>
+<p>The RM often scores <strong>instructions &gt; refusal</strong>, because instructions look more helpful. That is not a bug. It is why Run A erodes refusals: plain RLHF <em>follows</em> the RM.</p>
+<blockquote>
+<p><strong>Finding.</strong> If safety is gated on the reward model, refusals get punished. Your B/C designs correctly gate on <strong>cost</strong>.</p>
+</blockquote>
+<h2>How your trainers use the two models</h2>
+<p>In <code>ppo_cost_gate</code> / <code>ppo_cost_minmax</code> (simplified):</p>
+<ol>
+<li><code>reward = reward_model(...).end_scores</code>  </li>
+<li><code>cost = cost_model(...).end_scores</code>  </li>
+<li><code>unsafe_mask = cost &gt; threshold</code>  </li>
+<li>On unsafe tokens/samples: <code>reward ← penalty</code>  </li>
+<li>PPO + KL use that (possibly replaced) reward  </li>
+</ol>
+<p><strong>Cost never enters the loss as “maximise cost.”</strong> It is a switch.</p>
+<h2>Common confusions (nail them)</h2>
+<table>
+<thead>
+<tr>
+<th>Confusion</th>
+<th>Reality</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>“Cost model = safety reward we maximise”</td>
+<td>No — higher cost = worse; you constrain/punish it</td>
+</tr>
+<tr>
+<td>“Negative cost means broken model”</td>
+<td>No — benign often negative in Beaver unified cost</td>
+</tr>
+<tr>
+<td>“MinMax uses cost bounds”</td>
+<td>In <em>your</em> Run C, bounds are on <strong>reward</strong> scores; cost only triggers</td>
+</tr>
+<tr>
+<td>“One Beaver model does both”</td>
+<td>There are two checkpoints: <code>-reward</code> and <code>-cost</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can draw the gate diagram from memory.  </li>
+<li>[ ] I can explain a low-reward, low-cost refusal.  </li>
+<li>[ ] I can justify <code>threshold = 0</code> from the probe table.  </li>
+<li>[ ] I can point to <code>unsafe_mask = cost &gt; ...</code> in the trainer.</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>4. RLHF with PPO</h1>
+<h2>The problem RLHF solves</h2>
+<p>SFT teaches imitation. It does not directly optimise “what humans prefer among many possible replies.” <strong>RLHF</strong> adds a second stage: sample from the policy, score with a preference model, update the policy to raise expected score — with a brake so it does not leave the language manifold.</p>
+<h2>Four networks (your Stage 5 cast)</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Trainable?</th>
+<th>Job</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Actor</strong> (\pi_\theta)</td>
+<td>Yes (LoRA)</td>
+<td>Generate replies</td>
+</tr>
+<tr>
+<td><strong>Reference</strong> (\pi_{\text{ref}})</td>
+<td>No</td>
+<td>KL anchor = “stay near SFT/Instruct”</td>
+</tr>
+<tr>
+<td><strong>Reward (or gated scalar)</strong></td>
+<td>No (frozen Beaver)</td>
+<td>Provides (r) (possibly replaced)</td>
+</tr>
+<tr>
+<td><strong>Critic</strong> (V_\phi)</td>
+<td>Yes (LoRA + head)</td>
+<td>Estimates value for advantages</td>
+</tr>
+</tbody>
+</table>
+<p><em>[Diagram omitted in PDF — see Docsify site.]</em></p>
+<h2>The scalar that PPO sees</h2>
+<p>For each prompt–reply, form a reward. In vanilla RLHF that <em>is</em> the RM score (often shaped). In your B/C runs:</p>
+<p>[<br />
+\tilde{r} =<br />
+\begin{cases}<br />
+r_{\text{RM}}(x,y) &amp; \text{if } c(x,y) \le 0 \<br />
+R_{\text{unsafe}} &amp; \text{if } c(x,y) &gt; 0<br />
+\end{cases}<br />
+]</p>
+<p>Then add a <strong>KL penalty</strong> toward the reference (coefficient (\beta)):</p>
+<p>[<br />
+r_{\text{total}} = \tilde{r} - \beta \big(\log \pi_\theta(y\mid x) - \log \pi_{\text{ref}}(y\mid x)\big)<br />
+]</p>
+<p>(Exact placement of KL varies by codebase; the idea is universal: without it, policies chase RM quirks into gibberish.)</p>
+<h2>PPO in one screen</h2>
+<ol>
+<li>Collect a batch of on-policy samples.  </li>
+<li>Compute advantages (\hat{A}) (GAE from critic residuals).  </li>
+<li>Policy loss: clipped importance-ratio times advantage (PPO clip).  </li>
+<li>Value loss: critic matches returns.  </li>
+<li>Repeat.</li>
+</ol>
+<p>You do not need to re-implement PPO to be an expert on <em>your</em> thesis. You need to know: <strong>MinMax only changes (\tilde{r}) on unsafe samples.</strong> Actor/critic/KL machinery is shared across A/B/C.</p>
+<h2>Why Run A still matters</h2>
+<p>Run A sets (R_{\text{unsafe}}) unused — pure RM. If refusals die and reward rises via verbosity/fabrication, that demonstrates the <strong>RM incentive</strong>, not a bug in MinMax. Experts always show this control before claiming a safety method “worked.”</p>
+<h2>Hyperparameters that actually bite</h2>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Why experts care</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(\beta) / <code>kl_coeff</code></td>
+<td>Too small → hacking/collapse; too large → no learning</td>
+</tr>
+<tr>
+<td><code>max_length</code> / EOS behaviour</td>
+<td>Template bugs masquerade as algorithms</td>
+</tr>
+<tr>
+<td>Batch size</td>
+<td>Noisy advantages; unstable KL controllers (Phase 1 lesson)</td>
+</tr>
+<tr>
+<td>LoRA rank / targets</td>
+<td>Capacity; rarely the first place safety fails</td>
+</tr>
+</tbody>
+</table>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can name actor, reference, critic, scorer and say what is frozen.  </li>
+<li>[ ] I can write (\tilde{r}) for A vs B vs C.  </li>
+<li>[ ] I know MinMax does not replace PPO — it replaces unsafe rewards.  </li>
+<li>[ ] I can explain KL as a trust-region / stay-near-prior idea in one sentence.</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>5. Safe RLHF (PKU) — what you inherited</h1>
+<h2>The paper’s problem statement</h2>
+<p><strong>Safe RLHF</strong> (Dai et al., PKU-Alignment) argues that a single reward model conflates helpfulness and harmlessness. They collect <strong>separate</strong> preference data and train:</p>
+<ul>
+<li>a <strong>reward model</strong> for helpfulness,  </li>
+<li>a <strong>cost model</strong> for harmfulness,</li>
+</ul>
+<p>then optimise the policy to raise reward while <strong>constraining</strong> cost (their main algorithm family: <strong>PPO-Lag</strong> / Lagrangian).</p>
+<p>Beaver-7B and the <code>unified-reward</code> / <code>unified-cost</code> checkpoints are artifacts of that line of work.</p>
+<h2>What you reused</h2>
+<table>
+<thead>
+<tr>
+<th>Inherited</th>
+<th>Role in your thesis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reward / cost <strong>split</strong></td>
+<td>Conceptual backbone</td>
+</tr>
+<tr>
+<td>Beaver <strong>unified</strong> RM &amp; CM</td>
+<td>Frozen scorers</td>
+</tr>
+<tr>
+<td>PKU SafeRLHF <strong>prompts/data</strong></td>
+<td>Stage 5 training distribution</td>
+</tr>
+<tr>
+<td>Safe-RLHF <strong>codebase</strong> (PPO plumbing, DeepSpeed)</td>
+<td>Engineering host</td>
+</tr>
+</tbody>
+</table>
+<h2>What you did <em>not</em> copy</h2>
+<table>
+<thead>
+<tr>
+<th>PKU default</th>
+<th>Your Stage 5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PPO-Lag (learn a Lagrange multiplier for the cost constraint)</td>
+<td><strong>Hard gate</strong>: if <code>cost &gt; 0</code>, replace reward</td>
+</tr>
+<tr>
+<td>Often Alpaca-7B-centric actors</td>
+<td><strong>Qwen2.5-Instruct + LoRA</strong></td>
+</tr>
+<tr>
+<td>Cost as continuous constraint in the dual</td>
+<td>Cost as <strong>detector</strong> for MinMax / fixed penalty</td>
+</tr>
+</tbody>
+</table>
+<p>So a reviewer can say: “This is Safe-RLHF <strong>models and data</strong>, with a <strong>ROSARL-style gated penalty</strong> instead of PPO-Lag.” That is accurate and strong — do not claim you “reimplemented Safe RLHF entirely.”</p>
+<p><em>[Diagram omitted in PDF — see Docsify site.]</em></p>
+<h2>Why a hard gate is still “Safe RLHF flavoured”</h2>
+<p>Both approaches agree on:</p>
+<ol>
+<li>Two scalars with different semantics.  </li>
+<li>Harmfulness must limit unchecked helpfulness.  </li>
+<li>Evaluation should watch <strong>safety and helpfulness</strong>, not reward alone.</li>
+</ol>
+<p>They disagree on the <strong>mechanism</strong> that couples the scalars. Your contribution lives in that disagreement: fixed vs MinMax <strong>replacement</strong>, not dual ascent.</p>
+<h2>Beaver on Qwen — the transplant caveat</h2>
+<p>Beaver was trained in a Llama / Alpaca-response world. You score <strong>Qwen</strong> prose (after retokenize). Stage 4 probes suggested the <strong>cost</strong> ordering still worked on your lock-picking strings. Experts still say out loud: absolute scale and fine-grained rankings may shift under domain transfer. That is why matched <strong>A/B/C</strong> comparisons (same scorer) are more trustworthy than cross-paper absolute numbers.</p>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can contrast PPO-Lag vs hard gating in two sentences.  </li>
+<li>[ ] I never say “we ran Safe RLHF” when I mean “we used Beaver + a gate.”  </li>
+<li>[ ] I can name what was inherited vs invented.  </li>
+<li>[ ] I can list one risk of RM/CM transplant to Qwen.</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>6. MinMax — mechanism &amp; validity</h1>
+<h2>The mechanism (your Run C)</h2>
+<p>Maintain running bounds on a value signal — in your launch, <strong>reward-model end scores</strong>:</p>
+<p>[<br />
+V_{\MIN} \leftarrow \min(V_{\MIN}, r_{\text{batch}}),\quad<br />
+V_{\MAX} \leftarrow \max(V_{\MAX}, r_{\text{batch}})<br />
+]</p>
+<p>When the <strong>cost</strong> detector fires (<code>cost &gt; 0</code>), replace the sample’s reward with</p>
+<p>[<br />
+R_{\text{unsafe}} = V_{\MIN} - V_{\MAX}<br />
+]</p>
+<p>(optionally floored, e.g. at (-50)). Safe samples keep (r_{\text{RM}}).</p>
+<p>Intuition: (V_{\MAX} - V_{\MIN}) is the <strong>width</strong> of observed rewards. Setting unsafe reward to the negative width makes “being unsafe” as bad as the gap between the best and worst helpful scores seen so far — and the penalty <strong>deepens</strong> if the RM range expands.</p>
+<p><em>[Diagram omitted in PDF — see Docsify site.]</em></p>
+<h2>What must be true for MinMax to be a fair test</h2>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Your design</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Same detector as the fixed-penalty baseline</td>
+<td>Beaver cost, both B and C</td>
+</tr>
+<tr>
+<td>Same trigger</td>
+<td><code>cost &gt; 0</code></td>
+</tr>
+<tr>
+<td>Only magnitude differs</td>
+<td>B: −2 · C: (V_{\MIN}-V_{\MAX})</td>
+</tr>
+<tr>
+<td>Floor does not secretly force C≈B</td>
+<td>Floor −50, not −2</td>
+</tr>
+<tr>
+<td>Bounds can move</td>
+<td>Beaver rewards unbounded enough; they did move</td>
+</tr>
+</tbody>
+</table>
+<p>If any row fails, “MinMax helped” collapses into “we changed the detector” or “we clamped C to look like B.”</p>
+<h2>Validity: when the research question is real</h2>
+<p><strong>Valid question:</strong><br />
+<em>Given this cost detector, does an adaptive replacement beat a fixed −2 on harmlessness (and not destroy helpfulness)?</em></p>
+<p><strong>Invalid overclaim:</strong><br />
+<em>MinMax is the correct solution to Safe RLHF / replaces PPO-Lag / solves reward hacking.</em></p>
+<p>Phase 1 already showed invalidity of a stronger claim under <strong>Detoxify</strong>: when the detector is gameable, MinMax and PPO+KL look alike because the policy escapes the gate (<code>"Advertisements"</code>). Phase 2 asks whether a <strong>better detector</strong> resurrects the mechanism.</p>
+<h2>What your Run C numbers say (expert reading)</h2>
+<table>
+<thead>
+<tr>
+<th>Observation</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(R_{\text{unsafe}} \to \approx -9.92)</td>
+<td>Self-calibration <strong>fires</strong>; exceeds B’s −2</td>
+</tr>
+<tr>
+<td>Floor never hit</td>
+<td>−50 backstop did not dominate</td>
+</tr>
+<tr>
+<td>Mean <code>train/cost</code> still rises</td>
+<td>Adaptive magnitude ≠ solved average drift</td>
+</tr>
+<tr>
+<td>Probe text at 950 not clearly better than B</td>
+<td><strong>Do not</strong> claim MinMax wins on safety from scalars alone</td>
+</tr>
+</tbody>
+</table>
+<p>So: MinMax is <strong>empirically operative</strong> and <strong>scientifically contestable</strong> — exactly where a thesis contribution should sit.</p>
+<h2>Bounds on reward vs bounds on cost</h2>
+<p>Your code updates bounds from <strong>reward</strong> scores (<code>bound_source=reward</code>). Cost only gates. A different design could bound cost or advantage; that would be another paper. When speaking, say “reward-bounded MinMax penalty triggered by cost,” not “MinMax on the cost model.”</p>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can write (R_{\text{unsafe}}) and say what is updated each step.  </li>
+<li>[ ] I can state the matched B-vs-C null hypothesis.  </li>
+<li>[ ] I can explain why floor −2 would invalidate the contrast.  </li>
+<li>[ ] I can separate “penalty moved” from “policy got safer.”</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>7. Your A/B/C instrument</h1>
+<h2>Why three runs</h2>
+<p>One run cannot support a MinMax claim.</p>
+<table>
+<thead>
+<tr>
+<th>Run</th>
+<th>Missing piece if omitted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A</strong> only</td>
+<td>You never showed that unchecked RLHF is unsafe here</td>
+</tr>
+<tr>
+<td><strong>A+C</strong> only</td>
+<td>Any win might be “we added a cost model,” not MinMax</td>
+</tr>
+<tr>
+<td><strong>B+C</strong> only</td>
+<td>You lack the no-safety baseline for the narrative</td>
+</tr>
+<tr>
+<td><strong>A+B+C</strong></td>
+<td>Isolation: need signal → fixed gate → adaptive gate</td>
+</tr>
+</tbody>
+</table>
+<p><em>[Diagram omitted in PDF — see Docsify site.]</em></p>
+<h2>Isolation table (methods-section ready)</h2>
+<table>
+<thead>
+<tr>
+<th>Factor</th>
+<th>A</th>
+<th>B</th>
+<th>C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Actor / LoRA / data / seed / ChatML</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Reward model</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Cost model</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Trigger</td>
+<td>—</td>
+<td><code>cost &gt; 0</code></td>
+<td><code>cost &gt; 0</code></td>
+</tr>
+<tr>
+<td>Replacement</td>
+<td>—</td>
+<td>−2.0</td>
+<td>(V_{\MIN}-V_{\MAX})</td>
+</tr>
+</tbody>
+</table>
+<p>Everything below the line is the <strong>treatment</strong>. Everything above is <strong>controlled</strong>.</p>
+<h2>What to measure (two clocks)</h2>
+<p>Experts always report <strong>both</strong>:</p>
+<ol>
+<li><strong>Probe clock</strong> — fixed harmful prompt(s), fixed seeds, checkpoints 50/250/500/750/950: text + cost rescore.  </li>
+<li><strong>Distribution clock</strong> — <code>train/cost</code>, <code>unsafe_rate</code>, reward, length over training.</li>
+</ol>
+<p>B taught you they can disagree: probe gets safer while mean cost still drifts. C must be read the same way.</p>
+<h2>Checkpoint-500 / (R_{\text{unsafe}}) lock</h2>
+<p>When C’s penalty stops moving (~40–50% training), later updates are <strong>PPO under an almost-fixed large penalty</strong>. Comparing A/B/C at checkpoint-500 answers: “at first lock-in, who wins?” Comparing 950 answers: “after long training under that penalty, who wins?” Both are legitimate; they are different questions.</p>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can defend A/B/C in one paragraph as experimental design.  </li>
+<li>[ ] I never attribute to MinMax what B already does.  </li>
+<li>[ ] I report probe and mean-cost separately.  </li>
+<li>[ ] I know what changes between ckpt-500 and ckpt-950 under C.</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>8. Failure modes experts watch for</h1>
+<p>Safety RLHF fails in recurring patterns. Name them so you do not misread curves.</p>
+<h2>1. Reward hacking (Goodhart)</h2>
+<p>The policy maximises the <strong>proxy</strong> (RM score), not the human intent.</p>
+<p><strong>Your examples</strong><br />
+- Phase 1: collapse to <code>"Advertisements"</code> (Detoxify ≈ 0 → gate never fires).<br />
+- Phase 2 Run A: fabricated sources (“EduNipple”, “Olympia University”) while <code>train/reward</code> rises; length 147→365.</p>
+<p><strong>Expert move:</strong> always read <strong>text</strong> beside scalars. A rising reward curve is not a quality curve.</p>
+<h2>2. Detector escape</h2>
+<p>If the harm signal never fires, no gate or MinMax can help.</p>
+<table>
+<thead>
+<tr>
+<th>Detector</th>
+<th>Escape you saw</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Detoxify</td>
+<td>Non-toxic spam mode</td>
+</tr>
+<tr>
+<td>Beaver cost</td>
+<td>Harder to escape; <code>"Advertisements"</code> still scored +1.3 cost</td>
+</tr>
+</tbody>
+</table>
+<p>Phase 2’s bet was exactly this: better detector → MinMax gets a fairer fight.</p>
+<h2>3. Saturation / frozen penalty</h2>
+<p>If (V_{\MIN},V_{\MAX}) stop moving early, (R_{\text{unsafe}}) becomes a <strong>constant</strong> (possibly stuck near a floor). Then “MinMax” is marketing for a fixed gate.</p>
+<p><strong>Your Run C:</strong> bounds moved; (R_{\text{unsafe}}\rightarrow -9.92); floor never hit. Saturation-at-−2 did <strong>not</strong> recur. Late training is still “almost fixed,” but at a harsher level than B.</p>
+<h2>4. Average drift vs probe success</h2>
+<p>Mean <code>train/cost</code> can rise while a <strong>single</strong> harmful probe gets safer (Run B). Experts refuse to collapse these into one headline.</p>
+<h2>5. Template / length / EOS artifacts</h2>
+<p>Wrong chat template → no EOS → max-length garbage → RM scores noise. That invalidates algorithm comparisons. You already burned a Stage 5 attempt on this — treat it as a first-class failure mode.</p>
+<h2>6. KL / entropy collapse</h2>
+<p>Policy entropy → 0, KL spikes, diversity dies. Phase 1 MinMax-at-low-β looked like “0% harm” while being collapsed. Matched (\beta) ablations matter.</p>
+<h2>7. Measurement transplant error</h2>
+<p>Scoring Qwen text with Llama-tokenised Beaver models can distort scores. Prefer <strong>relative</strong> A/B/C comparisons under the same scorer.</p>
+<p><em>[Diagram omitted in PDF — see Docsify site.]</em></p>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can name four failure modes and give one project example each.  </li>
+<li>[ ] I never equate rising reward with success.  </li>
+<li>[ ] I check whether the gate is actually firing (<code>unsafe_rate</code>).  </li>
+<li>[ ] I know when to declare a run void vs merely disappointing.</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>9. Reading <em>your</em> results like an expert</h1>
+<p>Narrate Stage 5 the way a careful reviewer would — not the way a hype deck would.</p>
+<h2>Run A — disease confirmed</h2>
+<ul>
+<li>Reward ↑ then plateaus; length tracks it.  </li>
+<li>Lock-picking: refuse → <strong>comply at ~500</strong> and stay compliant.  </li>
+<li>Benign answers degrade (fabrication) while RM applauds.</li>
+</ul>
+<p><strong>Claimable:</strong> helpfulness-only PPO erodes refusal here; a cost signal is motivated.<br />
+<strong>Not claimable:</strong> anything about MinMax.</p>
+<h2>Run B — medicine helps on the probe</h2>
+<ul>
+<li>Same probe: late B lower <strong>cost</strong> than A; 950 pivots toward non-compliance.  </li>
+<li>Shared safety preamble exists; Session 17 showed the A/B gap is <strong>not</strong> only phrasing.  </li>
+<li>Mean generation cost still drifts up across training.</li>
+</ul>
+<p><strong>Claimable:</strong> fixed gate helps on this probe; does not arrest average drift.<br />
+<strong>Not claimable:</strong> “B solved Safe RLHF.”</p>
+<h2>Run C — mechanism worked; superiority unproven</h2>
+<ul>
+<li>(R_{\text{unsafe}}\approx -9.92) (≫ B’s −2); floor unused; bounds moved.  </li>
+<li><code>train/cost</code> −2.7→+2.4; <code>unsafe_rate</code> 14%→64% — drift persists under a harsher penalty.  </li>
+<li>Qualitative 950: still advice-shaped; <strong>does not</strong> clearly beat B’s police pivot.  </li>
+<li>Cost rescore of C vs A/B still the missing quantitative nail.</li>
+</ul>
+<p><strong>Claimable:</strong> self-calibration operates; Phase-1-style floor freeze did not bind.<br />
+<strong>Not claimable (yet):</strong> “MinMax improves safety over B.”</p>
+<p><em>[Diagram omitted in PDF — see Docsify site.]</em></p>
+<h2>How to say it in a talk (safe wording)</h2>
+<blockquote>
+<p>Plain RLHF removes refusals. A cost gate recovers some probe safety but average cost still rises. MinMax grows a much stronger penalty than our fixed −2 baseline; whether that improves harmlessness over the fixed gate is still judged by matched cost rescoring and qualitative inspection — scalars alone are not enough.</p>
+</blockquote>
+<h2>Figures to keep in the appendix</h2>
+<table>
+<thead>
+<tr>
+<th>Figure</th>
+<th>Point</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reward A vs C</td>
+<td>Different reward trajectories</td>
+</tr>
+<tr>
+<td>C cost + unsafe</td>
+<td>Drift under MinMax</td>
+</tr>
+<tr>
+<td>Bounds vs −2</td>
+<td>Calibration worked</td>
+</tr>
+<tr>
+<td>At lock A/B/C</td>
+<td>Matched stage comparison</td>
+</tr>
+<tr>
+<td>Probe A vs B</td>
+<td>B helps on probe</td>
+</tr>
+</tbody>
+</table>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can give the three-run story in under two minutes without overclaiming C.  </li>
+<li>[ ] I separate “penalty moved” from “safer policy.”  </li>
+<li>[ ] I know which figure supports which sentence.  </li>
+<li>[ ] I can list what result would falsify a MinMax win.</li>
+</ul>
+<hr class="pagebreak" />
+
+<h1>10. Papers &amp; further study</h1>
+<p>Read to extract <strong>mechanisms</strong>, not vibes. For each paper, write three bullets: problem, method, what it implies for <em>your</em> A/B/C.</p>
+<h2>Core stack</h2>
+<table>
+<thead>
+<tr>
+<th>Paper</th>
+<th>Extract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Christiano et al.</strong> — Deep RL from Human Preferences</td>
+<td>Preferences → reward model → RL</td>
+</tr>
+<tr>
+<td><strong>Ziegler et al. / Stiennon et al.</strong> — Learning to summarise / early LM RLHF</td>
+<td>RM + PPO on LMs</td>
+</tr>
+<tr>
+<td><strong>Ouyang et al.</strong> — InstructGPT</td>
+<td>Production RLHF recipe; SFT→RM→PPO; KL to reference</td>
+</tr>
+<tr>
+<td><strong>Bai et al.</strong> — Training a Helpful &amp; Harmless Assistant</td>
+<td>Helpfulness–harmlessness tension; why one scalar hurts</td>
+</tr>
+<tr>
+<td><strong>Dai et al.</strong> — Safe RLHF</td>
+<td>Separate RM &amp; CM; Beaver; PPO-Lag; PKU data</td>
+</tr>
+</tbody>
+</table>
+<h2>Adjacent / mechanism</h2>
+<table>
+<thead>
+<tr>
+<th>Paper / topic</th>
+<th>Extract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Schulman et al.</strong> — PPO</td>
+<td>Clipping, stability (you consume, not re-derive)</td>
+</tr>
+<tr>
+<td><strong>Hu et al.</strong> — LoRA</td>
+<td>Why adapters make 1.5B+7B scorers feasible</td>
+</tr>
+<tr>
+<td><strong>Goodhart / reward hacking surveys</strong> (e.g. Skalse, Pan, et al. lines)</td>
+<td>Proxy vs intent; your EduNipple / Advertisements stories</td>
+</tr>
+<tr>
+<td><strong>ROSARL / MinMax-bound penalty</strong> (your lineage)</td>
+<td>Adaptive unsafe replacement; compare carefully to what you implemented</td>
+</tr>
+<tr>
+<td><strong>Constitutional AI / RLAIF</strong></td>
+<td>Alternative to human cost labels — context, not your method</td>
+</tr>
+</tbody>
+</table>
+<h2>How to read Dai et al. for your thesis</h2>
+<ol>
+<li>Note the <strong>split</strong> RM/CM — you keep this.  </li>
+<li>Note <strong>PPO-Lag</strong> — you replace this with a hard gate.  </li>
+<li>Note evaluation (harmlessness vs helpfulness) — mirror with probe + reward metrics.  </li>
+<li>Never imply your gate <strong>is</strong> their algorithm.</li>
+</ol>
+<h2>Optional deep dives (after the above)</h2>
+<ul>
+<li>Tokenisers &amp; multilingual Qwen quirks  </li>
+<li>GAE / advantage estimation details  </li>
+<li>Distributed RLHF (OpenRLHF, verl) if you rebuild the stack  </li>
+<li>Formal constrained RL (CMDP) vs heuristic gating  </li>
+</ul>
+<h2>Expert checklist</h2>
+<ul>
+<li>[ ] I can cite InstructGPT vs Safe RLHF roles in one breath.  </li>
+<li>[ ] I can say what I took from Dai et al. and what I changed.  </li>
+<li>[ ] I have a one-page reading notes file for each core paper.  </li>
+<li>[ ] I know which failure-mode literature covers Phase 1 vs Phase 2.</li>
+</ul>
+<hr />
+</body>
+</html>

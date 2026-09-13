@@ -36,3 +36,17 @@ You already ran Stage 5. You do not need another “hello LLM” blog. You need 
 3. Explain that chapter out loud in ≤3 minutes. If you can’t, re-read the “expert checklist” at the end.
 
 After the textbook: [claims](/worklog/10-claims.md) → Phase 2 worklog Sessions 15–19.
+
+## PDF
+
+A generated PDF lives at:
+
+`docs/worklog/textbook/Safe-RL-MinMax-Textbook.pdf`
+
+Rebuild anytime:
+
+```bash
+python scripts/build_textbook_pdf.py
+```
+
+(That also writes `Safe-RL-MinMax-Textbook.html` — open in a browser and use **Print → Save as PDF** if you want browser typography / page breaks.)

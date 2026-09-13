@@ -55,9 +55,9 @@ You are not lost on the science of the gate. The fog is mostly **engineering sur
 | **RLHF** | Further train the LM with a preference-derived reward via RL (usually PPO) | All Stage 5 runs |
 | **Reward model (RM)** | Bradley–Terry model on human “chosen vs rejected” pairs → scalar helpfulness | Beaver **reward** |
 | **Cost model (CM)** | Same style of model, but pairs labeled for **safety** → scalar harm | Beaver **cost** |
-| **Actor** | The policy LM being updated | Qwen + LoRA |
+| **Actor** | The policy LM being updated | **Qwen track:** Qwen + LoRA; **Llama track (optional):** TinyLlama + LoRA |
 | **Reference** | Frozen copy of the policy (KL anchor so it does not drift into gibberish) | Same weights, adapters off |
-| **Critic / value** | Estimates expected return for PPO advantages | `Qwen2ForScore` + LoRA |
+| **Critic / value** | Estimates expected return for PPO advantages | Same family as actor + LoRA (`Qwen2ForScore` or Llama score head) |
 | **LoRA** | Train tiny adapter matrices instead of all weights | r=16 on q/v (Phase 2) |
 | **PPO** | Stable policy-gradient RL algorithm used in InstructGPT-style RLHF | Safe-RLHF PPO loop |
 | **Safe RLHF (Dai et al.)** | Optimize reward under a cost/safety constraint (they use Lagrange / PPO-Lag) | You use their **models + split**, not their Lagrange trainer |
@@ -82,12 +82,21 @@ flowchart LR
 
 Phase 1 was the same MinMax idea with a **different detector** (Detoxify toxicity → fake “reward”), on GPT-2. It taught you the detector can be gamed (`"Advertisements"`). Phase 2 moved the detector to Beaver **cost**.
 
+### Two Stage 5 actor tracks (optional Llama)
+
+| Track | Actor | Template | Beaver RM/CM scoring | Status |
+|---|---|---|---|---|
+| **Qwen (current results)** | `Qwen2.5-1.5B-Instruct` + LoRA | ChatML | Vocab differs → `batch_retokenize` (known caveat) | Documented A/B/C |
+| **Llama-small (optional)** | `TinyLlama-1.1B-Chat-v1.0` + LoRA | Alpaca | Same tokenizer when verify passes → **no** retokenize | Scripts ready; not the default claim track |
+
+Fair **MinMax** claims stay **within-track** (Qwen A/B/C or Llama A/B/C). Qwen vs Llama is a separate ablation, not a substitute for B-vs-C isolation. Llama launches call `scripts/verify_tokenizer_alignment.py --require-same` before DeepSpeed so a vocab mismatch fails the job instead of silently retokenizing.
+
 ---
 
 ## 4. Transformers & RLHF — only what you need
 
 ### Language model
-A decoder-only transformer assigns \(p(y_t \mid y_{<t}, x)\). Chat templates (ChatML for Qwen) wrap user/assistant turns so the model knows whose turn it is. Wrong template → broken generations (your Alpaca-vs-ChatML lesson).
+A decoder-only transformer assigns \(p(y_t \mid y_{<t}, x)\). Chat templates (ChatML for Qwen; Alpaca for the TinyLlama track) wrap user/assistant turns so the model knows whose turn it is. Wrong template → broken generations (your Alpaca-vs-ChatML lesson on Qwen).
 
 ### Preference model
 Humans (or AI labelers) pick which of two replies is better. Train a scalar head with Bradley–Terry loss so  
@@ -112,11 +121,13 @@ MinMax does **not** change steps 1 or 4. It only changes step 2 when the cost de
 **As “the” Safe RLHF algorithm: no — it is an alternative mechanism, not PKU’s official method.**
 
 ### What would make MinMax a fair claim
-You already set this up correctly:
+You already set this up correctly **within one actor track**:
 
 - Same actor, data, seed, template  
 - Same **detector** (cost model) and **trigger** (`cost > 0`)  
 - Only the **replacement magnitude** differs (B fixed vs C adaptive)
+
+Do not mix Qwen-B with Llama-C and call it a MinMax result. Cross-family (Qwen-A vs Llama-A, etc.) is an ablation of the double-tokenizer / policy family, not of the gate.
 
 If C beats B on harmlessness without collapsing quality, MinMax earned its keep. If not, that is still a valid negative / partial result.
 
@@ -162,6 +173,6 @@ You do **not** need to re-derive transformer math to defend MinMax. You need: RM
 
 ## 8. One-sentence orientation
 
-> You train Qwen to be helpful with a **reward** model; when a **cost** model says the reply is harmful (`cost > 0`), you replace that helpfulness score with a penalty — fixed in B, self-calibrating MinMax in C — and ask whether the adaptive penalty is worth it.
+> You train a policy (Qwen by default; optional TinyLlama) to be helpful with a **reward** model; when a **cost** model says the reply is harmful (`cost > 0`), you replace that helpfulness score with a penalty — fixed in B, self-calibrating MinMax in C — and ask whether the adaptive penalty is worth it.
 
 That is the whole project. Everything else is scaffolding.

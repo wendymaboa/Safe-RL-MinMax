@@ -1143,12 +1143,20 @@ A/B.
 - [ ] Watch whether PKU's reward model — trained on Alpaca-7B responses — behaves sensibly
       when scoring Qwen responses. A distribution gap here would be a real finding about
       transplanting a reward model across actor families.
+- [ ] **Optional Llama track** — Stage 5 A/B/C + inspect sbatches
+      (`stage5-run{A,B,C}-*-llama.sbatch`, `inspect-run{A,B,C}-llama.sbatch`) use
+      `TinyLlama-1.1B-Chat-v1.0` + `SAFE_RLHF_PROMPT_TEMPLATE=alpaca` and call
+      `verify_tokenizer_alignment.py --require-same` so Beaver RM/CM share the actor
+      vocab and skip `batch_retokenize`. Qwen scripts stay untouched. MinMax claims remain
+      within-track; Qwen vs Llama is a separate ablation. Not started on cluster yet.
 
 **Before trusting any result:**
 
 - [ ] Verify `batch_retokenize` round-trips Qwen text through the LLaMA tokenizer without
       meaningful drift — it decodes with `skip_special_tokens=True` and re-encodes.
-      If scores look wrong at smoke-test time, the fallback is training a small Qwen RM.
+      **Qwen-track-only** caveat; the Llama track removes the bridge by construction when
+      verify passes. If Qwen scores look wrong at smoke-test time, fallbacks are a small
+      Qwen RM *or* the matched TinyLlama policy track.
 - [ ] Sanity-check the Beaver reward model separates obviously-harmful from
       obviously-helpful text *before* spending biggpu hours on it.
 - [ ] Assert the critic's `score_head` has `requires_grad=True` after wrapping, as an

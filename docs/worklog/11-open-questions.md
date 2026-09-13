@@ -22,7 +22,7 @@ flowchart LR
 | Item | Context |
 |---|---|
 | Resume-from-adapter not implemented | Snapshots make restarts survivable but lossy |
-| `batch_retokenize` Qwen→LLaMA drift | Not systematically audited beyond probes |
+| `batch_retokenize` Qwen→LLaMA drift | **Qwen track only**; Llama track skips it when `verify_tokenizer_alignment.py --require-same` passes |
 | No CUDA JIT on mscluster | Sidestepped via `--use_torch_adam` |
 | Faulty nodes | `mscluster65`, `83`, `111` |
 | HF download speed on compute | Pre-download; `HF_HUB_DISABLE_XET=1` |
@@ -33,6 +33,7 @@ flowchart LR
 - Compare against PKU’s PPO-Lag under the same Qwen+LoRA setup.
 - Multi-seed confirmation of A/B/C qualitative stories.
 - Widen `--lora_target_modules` with measurements.
+- **Llama-family Stage 5 track** (scripts ready): TinyLlama + Alpaca + Beaver, same A/B/C knobs; within-track MinMax isolation; optional Qwen-vs-Llama ablation of the double-tokenizer.
 
 ## Navigation
 
