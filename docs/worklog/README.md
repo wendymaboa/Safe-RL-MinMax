@@ -29,11 +29,12 @@ flowchart TB
 | Phase 2 Stages 0–4 | Env, LoRA, PPO smoke, cost detector | [worklog](/worklog/worklogs/phase2.md) | [01](/worklog/phase2/01-reset-and-cluster.md)–[04](/worklog/phase2/04-reward-cost-and-gpu.md) |
 | Run A | Complete — refusal eroded | Sessions 14–15 | [05](/worklog/phase2/05-run-a.md) |
 | Run B | Complete — gate helps on probe; avg cost drifts | Sessions 16–17 | [06](/worklog/phase2/06-run-b.md) |
-| Run C | Implemented; not trained | Session 18 | [07](/worklog/phase2/07-run-c.md) |
-| Claims (A+B only) | Current verdict | — | [10](/worklog/10-claims.md) |
+| Run C | Trained + inspected; cost rescore pending | Sessions 18–19 | [07](/worklog/phase2/07-run-c.md) |
+| Claims | A+B solid; C partial (bounds move, drift remains) | — | [10](/worklog/10-claims.md) |
 
 ## Guided reading order
 
+0. **Lost / need concepts first?** → [Foundations](/worklog/fundamentals.md) (reward vs cost, PPO cartoon, is MinMax valid?)
 1. [How to read this worklog](/worklog/00-how-to-read.md)
 2. [Phase 1 worklog](/worklog/worklogs/phase1.md) *or* [Phase 1 chapters](/worklog/phase1/README.md)
 3. [Phase 2 worklog](/worklog/worklogs/phase2.md) *or* [Phase 2 chapters](/worklog/phase2/README.md)
