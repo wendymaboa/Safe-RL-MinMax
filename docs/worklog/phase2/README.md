@@ -65,7 +65,7 @@ A alone cannot support a claim about MinMax. Without B, “Minmax improved safet
 
 Skip SFT (Instruct already ships tuned). Skip training a home reward model — use PKU’s released RM.
 
-**Optional Llama track** (does not replace the table above): same A/B/C design with `TinyLlama/TinyLlama-1.1B-Chat-v1.0` + Alpaca template so Beaver shares the actor tokenizer (`verify_tokenizer_alignment.py --require-same`). Qwen remains the documented results track; fair MinMax claims stay within one family.
+**Optional Llama track** (does not replace the table above): same A/B/C design with `princeton-nlp/Sheared-LLaMA-1.3B` + Alpaca template so Beaver shares the actor tokenizer (`verify_tokenizer_alignment.py --require-same`). Qwen remains the documented results track; fair MinMax claims stay within one family.
 
 ## Status at a glance
 

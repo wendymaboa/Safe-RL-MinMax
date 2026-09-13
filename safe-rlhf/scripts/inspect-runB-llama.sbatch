@@ -25,7 +25,7 @@ REPO_DIR="$HOME/Safe-RL-MinMax/safe-rlhf"
 cd "$REPO_DIR"
 export PYTHONPATH="$REPO_DIR${PYTHONPATH:+:$PYTHONPATH}"
 
-ACTOR_MODEL="${ACTOR_MODEL:-TinyLlama/TinyLlama-1.1B-Chat-v1.0}"
+ACTOR_MODEL="${ACTOR_MODEL:-princeton-nlp/Sheared-LLaMA-1.3B}"
 RUN_DIR="$HOME/Safe-RL-MinMax/output/stage5_runB_llama"
 
 echo "node : $(hostname)"

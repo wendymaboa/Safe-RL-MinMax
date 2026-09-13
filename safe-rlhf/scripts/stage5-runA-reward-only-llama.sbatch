@@ -9,11 +9,14 @@
 # Stage 5, RUN A — Llama-family track (optional).
 #
 # Same A/B/C design as scripts/stage5-runA-reward-only.sbatch, but the policy is
-# TinyLlama-1.1B-Chat so Beaver RM shares the actor tokenizer (no batch_retokenize).
+# Sheared-LLaMA-1.3B so Beaver RM shares the actor tokenizer (no batch_retokenize).
+# TinyLlama was tried first: vocab matches Llama-2 except Beaver's <pad>, but TinyLlama
+# sets pad_token=</s> so Safe-RLHF never adds <pad> → verify --require-same fails.
+# Sheared-LLaMA leaves pad unset; training adds <pad> and matches Beaver.
 # Keep the Qwen ChatML scripts for a later Qwen-vs-Llama ablation; MinMax claims stay
 # within-track (compare this A to runB/C-llama, not to Qwen B/C).
 #
-# Template: alpaca (upstream Safe-RLHF default). Do not use chatml with TinyLlama.
+# Template: alpaca (upstream Safe-RLHF default). Do not use chatml here.
 
 set -euo pipefail
 
@@ -32,14 +35,14 @@ REPO_DIR="$HOME/Safe-RL-MinMax/safe-rlhf"
 cd "$REPO_DIR"
 export PYTHONPATH="$REPO_DIR${PYTHONPATH:+:$PYTHONPATH}"
 
-ACTOR_MODEL="${ACTOR_MODEL:-TinyLlama/TinyLlama-1.1B-Chat-v1.0}"
+ACTOR_MODEL="${ACTOR_MODEL:-princeton-nlp/Sheared-LLaMA-1.3B}"
 REWARD_MODEL="${REWARD_MODEL:-PKU-Alignment/beaver-7b-unified-reward}"
 OUTPUT_DIR="$HOME/Safe-RL-MinMax/output/stage5_runA_llama"
 mkdir -p "$OUTPUT_DIR"
 
 echo "node    : $(hostname)"
 echo "env     : ${CONDA_DEFAULT_ENV}"
-echo "track   : llama (TinyLlama + alpaca template)"
+echo "track   : llama (Sheared-LLaMA-1.3B + alpaca template)"
 echo "actor   : ${ACTOR_MODEL}"
 echo "started : $(date)"
 nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv

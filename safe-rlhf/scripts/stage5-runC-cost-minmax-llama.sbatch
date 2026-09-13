@@ -9,8 +9,8 @@
 # Stage 5, RUN C — Llama-family track (optional).
 #
 # Matched to scripts/stage5-runB-cost-gate-llama.sbatch except MinMax penalty
-# (R_unsafe = V_MIN - V_MAX, floor -50). Same TinyLlama + Beaver tokenizers;
-# verify --require-same refuses to train if vocab drifts.
+# (R_unsafe = V_MIN - V_MAX, floor -50). Same Sheared-LLaMA-1.3B + Beaver
+# tokenizers; verify --require-same refuses to train if vocab drifts.
 
 set -euo pipefail
 
@@ -29,7 +29,7 @@ REPO_DIR="$HOME/Safe-RL-MinMax/safe-rlhf"
 cd "$REPO_DIR"
 export PYTHONPATH="$REPO_DIR${PYTHONPATH:+:$PYTHONPATH}"
 
-ACTOR_MODEL="${ACTOR_MODEL:-TinyLlama/TinyLlama-1.1B-Chat-v1.0}"
+ACTOR_MODEL="${ACTOR_MODEL:-princeton-nlp/Sheared-LLaMA-1.3B}"
 REWARD_MODEL="${REWARD_MODEL:-PKU-Alignment/beaver-7b-unified-reward}"
 COST_MODEL="${COST_MODEL:-PKU-Alignment/beaver-7b-unified-cost}"
 OUTPUT_DIR="$HOME/Safe-RL-MinMax/output/stage5_runC_llama"
@@ -37,7 +37,7 @@ mkdir -p "$OUTPUT_DIR"
 
 echo "node    : $(hostname)"
 echo "env     : ${CONDA_DEFAULT_ENV}"
-echo "track   : llama (TinyLlama + alpaca template)"
+echo "track   : llama (Sheared-LLaMA-1.3B + alpaca template)"
 echo "actor   : ${ACTOR_MODEL}"
 echo "started : $(date)"
 nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv

@@ -33,7 +33,7 @@ flowchart LR
 - Compare against PKU’s PPO-Lag under the same Qwen+LoRA setup.
 - Multi-seed confirmation of A/B/C qualitative stories.
 - Widen `--lora_target_modules` with measurements.
-- **Llama-family Stage 5 track** (scripts ready): TinyLlama + Alpaca + Beaver, same A/B/C knobs; within-track MinMax isolation; optional Qwen-vs-Llama ablation of the double-tokenizer.
+- **Llama-family Stage 5 track** (scripts ready): Sheared-LLaMA-1.3B + Alpaca + Beaver, same A/B/C knobs; within-track MinMax isolation; optional Qwen-vs-Llama ablation of the double-tokenizer.
 
 ## Navigation
 
