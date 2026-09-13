@@ -1,6 +1,19 @@
 * [Home](/worklog/README.md)
 * [How to read these worklogs](/worklog/00-how-to-read.md)
-* [Foundations — RM vs CM, MinMax validity](/worklog/fundamentals.md)
+* [Foundations (one-pager)](/worklog/fundamentals.md)
+
+**Textbook — become an expert**
+* [Textbook home](/worklog/textbook/README.md)
+* [1. Transformers & LMs](/worklog/textbook/01-transformers.md)
+* [2. Preferences → scores](/worklog/textbook/02-preferences-and-scores.md)
+* [3. Reward vs cost](/worklog/textbook/03-reward-vs-cost.md)
+* [4. RLHF with PPO](/worklog/textbook/04-rlhf-ppo.md)
+* [5. Safe RLHF (PKU)](/worklog/textbook/05-safe-rlhf.md)
+* [6. MinMax validity](/worklog/textbook/06-minmax.md)
+* [7. A/B/C design](/worklog/textbook/07-abc-design.md)
+* [8. Failure modes](/worklog/textbook/08-failure-modes.md)
+* [9. Reading your results](/worklog/textbook/09-reading-results.md)
+* [10. Papers](/worklog/textbook/10-papers.md)
 
 **Full worklogs (source of truth)**
 * [Phase 1 worklog](/worklog/worklogs/phase1.md)
