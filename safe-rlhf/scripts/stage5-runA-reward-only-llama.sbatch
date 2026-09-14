@@ -17,6 +17,10 @@
 # within-track (compare this A to runB/C-llama, not to Qwen B/C).
 #
 # Template: alpaca (upstream Safe-RLHF default). Do not use chatml here.
+#
+# Sheared-LLaMA is a base (not instruct) model; job 54117 hit fp16 loss-scaler floor at
+# step 355 on the critic. Batch 4 + grad-accum 2, actor_lr 5e-6, critic_lr 1e-6,
+# clip_range_value 2.0 are the stability knobs (effective batch still 8).
 
 set -euo pipefail
 
@@ -69,14 +73,14 @@ deepspeed --num_gpus 1 --master_port 29547 \
 	--trust_remote_code False \
 	--epochs 1 \
 	--update_iters 1 \
-	--per_device_prompt_batch_size 8 \
-	--per_device_train_batch_size 8 \
-	--gradient_accumulation_steps 1 \
-	--actor_lr 1e-5 \
+	--per_device_prompt_batch_size 4 \
+	--per_device_train_batch_size 4 \
+	--gradient_accumulation_steps 2 \
+	--actor_lr 5e-6 \
 	--actor_weight_decay 0.01 \
 	--actor_lr_scheduler_type cosine \
 	--actor_lr_warmup_ratio 0.03 \
-	--critic_lr 5e-6 \
+	--critic_lr 1e-6 \
 	--critic_weight_decay 0.0 \
 	--critic_lr_scheduler_type constant \
 	--critic_lr_warmup_ratio 0.03 \
@@ -86,7 +90,7 @@ deepspeed --num_gpus 1 --master_port 29547 \
 	--kl_coeff 0.02 \
 	--clip_range_ratio 0.2 \
 	--clip_range_score 50.0 \
-	--clip_range_value 5.0 \
+	--clip_range_value 2.0 \
 	--save_interval 50 \
 	--output_dir "$OUTPUT_DIR" \
 	--log_type tensorboard \
