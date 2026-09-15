@@ -1,6 +1,7 @@
 * [Home](/worklog/README.md)
 * [How to read these worklogs](/worklog/00-how-to-read.md)
 * [Foundations (one-pager)](/worklog/fundamentals.md)
+* [Architecture atlas (P1 → P2)](/worklog/architecture.md)
 
 **Textbook — become an expert**
 * [Textbook home](/worklog/textbook/README.md)

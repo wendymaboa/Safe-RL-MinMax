@@ -167,6 +167,7 @@ You do **not** need to re-derive transformer math to defend MinMax. You need: RM
 | “What can I claim?” | [Claims](/worklog/10-claims.md) |
 | “What did each session conclude?” | [Phase 2 worklog](/worklog/worklogs/phase2.md) |
 | “Where is MinMax code?” | `safe_rlhf/algorithms/ppo_cost_minmax/` (gate shared with `ppo_cost_gate`) |
+| “Show me the full stack in diagrams” | [Architecture atlas](/worklog/architecture.md) |
 | “OpenRLHF instead?” | They have **RM only** by default; your CM gate would be a custom reward function |
 
 ---

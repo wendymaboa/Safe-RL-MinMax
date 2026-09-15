@@ -36,6 +36,7 @@ flowchart TB
 
 0. **Want expertise, not just the lab log?** → [Textbook](/worklog/textbook/README.md) (10 chapters)
 0b. **Lost / 10-minute orientation?** → [Foundations](/worklog/fundamentals.md)
+0c. **Need diagrams for a talk?** → [Architecture atlas](/worklog/architecture.md) (Phase 1 → Stage 5)
 1. [How to read this worklog](/worklog/00-how-to-read.md)
 2. [Phase 1 worklog](/worklog/worklogs/phase1.md) *or* [Phase 1 chapters](/worklog/phase1/README.md)
 3. [Phase 2 worklog](/worklog/worklogs/phase2.md) *or* [Phase 2 chapters](/worklog/phase2/README.md)
