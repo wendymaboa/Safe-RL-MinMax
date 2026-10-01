@@ -23,6 +23,11 @@ critic values after warmup).
 
 That isolates the thesis question: does a self-calibrating bound buy anything
 over a fixed −2.0 penalty, given the same detector and the same trigger?
+
+Run D (``--scale_penalty_by_cost``) keeps the same detector and trigger and
+only changes the replacement from a flat ``V_MIN − V_MAX`` to
+``−gap × (1 + severity)``, so C vs D isolates whether a cost-magnitude slope
+helps after the bounds lock.
 """
 
 from __future__ import annotations
@@ -65,7 +70,25 @@ class PPOCostMinmaxTrainer(PPOCostGateTrainer):
             penalty_floor=self.args.penalty_floor,
             bound_source=self.args.bound_source,
             critic_warmup_steps=self.args.critic_warmup_steps,
+            cost_scale_floor=getattr(self.args, 'cost_scale_floor', 1.0),
+            severity_cap=getattr(self.args, 'severity_cap', 1.0),
         )
+        # Run C default: flat V_MIN − V_MAX. Run D: scale that gap by cost excess.
+        self.scale_penalty_by_cost = bool(getattr(self.args, 'scale_penalty_by_cost', False))
+
+    def _distributed_masked_mean(
+        self,
+        values: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """All-reduce mean of ``values`` on ``mask``. Returns 0 if the mask is empty."""
+        total = (values * mask).sum()
+        count = mask.sum()
+        dist.all_reduce(total, op=dist.ReduceOp.SUM)
+        dist.all_reduce(count, op=dist.ReduceOp.SUM)
+        if float(count.item()) <= 0:
+            return values.new_zeros(())
+        return total / count
 
     def _sync_scalar_minmax(self, local_min: torch.Tensor, local_max: torch.Tensor) -> tuple[float, float]:
         """All-reduce batch extrema so every rank updates V_MIN/V_MAX identically."""
@@ -96,15 +119,27 @@ class PPOCostMinmaxTrainer(PPOCostGateTrainer):
         start = prompt.size(-1) - 1
         sequence_mask = attention_mask[:, 1:]
 
-        # THE GATE — same condition as Run B. Only the replacement value differs:
-        # V_MIN − V_MAX (floored) instead of a fixed --penalty_magnitude.
+        # THE GATE — same condition as Run B/C. Run C replaces with the scalar
+        # V_MIN − V_MAX. Run D (--scale_penalty_by_cost) keeps that gap as the
+        # unit and multiplies by (1 + severity), where severity is the sample's
+        # cost excess over the running gated mean, capped at --severity_cap.
         unsafe_mask = cost > self.cost_threshold
         r_unsafe, r_unsafe_raw, floor_active = self.minmax.current_penalty()
-        gated_reward = torch.where(
-            unsafe_mask,
-            torch.full_like(reward, r_unsafe),
-            reward,
-        )
+        excess = (cost - self.cost_threshold).clamp(min=0)
+        if self.scale_penalty_by_cost:
+            c_scale = self.minmax.effective_c_scale()
+            severity = (excess / c_scale).clamp(max=self.minmax.severity_cap)
+            penalties = (-self.minmax.gap * (1.0 + severity)).clamp(
+                min=self.minmax.penalty_floor,
+            )
+            gated_reward = torch.where(unsafe_mask, penalties.to(dtype=reward.dtype), reward)
+        else:
+            severity = torch.zeros_like(excess)
+            gated_reward = torch.where(
+                unsafe_mask,
+                torch.full_like(reward, r_unsafe),
+                reward,
+            )
 
         # Expand bounds from this batch AFTER applying the pre-batch penalty
         # (Algorithm 1). Sync extrema across ranks so multi-GPU stays consistent.
@@ -128,13 +163,17 @@ class PPOCostMinmaxTrainer(PPOCostGateTrainer):
             device=reward.device,
             dtype=torch.long,
         )
+        excess_sum_tensor = (excess * unsafe_mask.float()).sum()
         dist.all_reduce(n_unsafe_tensor, op=dist.ReduceOp.SUM)
+        dist.all_reduce(excess_sum_tensor, op=dist.ReduceOp.SUM)
         self.minmax.update(
             batch_r_min=batch_r_min,
             batch_r_max=batch_r_max,
             batch_v_min=batch_v_min,
             batch_v_max=batch_v_max,
             n_unsafe=int(n_unsafe_tensor.item()),
+            excess_sum=float(excess_sum_tensor.item()),
+            adapt_cost_scale=self.scale_penalty_by_cost,
         )
         self._maybe_persist_minmax_state()
 
@@ -185,7 +224,9 @@ class PPOCostMinmaxTrainer(PPOCostGateTrainer):
             mean_generated_length = mask.sum(dim=-1).float().mean()
             max_generated_length = mask.sum(dim=-1).float().max()
 
-            unsafe_rate = unsafe_mask.float().mean()
+            unsafe_mask_f = unsafe_mask.float()
+            safe_mask_f = 1.0 - unsafe_mask_f
+            unsafe_rate = unsafe_mask_f.mean()
             reward_mean = reward.mean()
             cost_mean = cost.mean()
             gated_reward_mean = gated_reward.mean()
@@ -193,6 +234,18 @@ class PPOCostMinmaxTrainer(PPOCostGateTrainer):
             reward_advantage = masked_mean(reward_advantages, mask)
             reward_return = masked_mean(reward_returns, mask)
             reward_value = masked_mean(reward_values[:, start:], mask)
+            cost_safe = self._distributed_masked_mean(cost, safe_mask_f)
+            cost_unsafe = self._distributed_masked_mean(cost, unsafe_mask_f)
+            reward_safe = self._distributed_masked_mean(reward, safe_mask_f)
+            reward_unsafe = self._distributed_masked_mean(reward, unsafe_mask_f)
+            severity_mean = self._distributed_masked_mean(severity, unsafe_mask_f)
+            if self.scale_penalty_by_cost:
+                r_unsafe_applied = self._distributed_masked_mean(
+                    gated_reward,
+                    unsafe_mask_f,
+                )
+            else:
+                r_unsafe_applied = gated_reward.new_tensor(r_unsafe)
 
             actor_loss = get_all_reduce_mean(actor_loss)
             reward_critic_loss = get_all_reduce_mean(reward_critic_loss)
@@ -215,12 +268,19 @@ class PPOCostMinmaxTrainer(PPOCostGateTrainer):
             'train/reward_critic_loss': reward_critic_loss.item(),
             'train/reward': reward_mean.item(),
             'train/cost': cost_mean.item(),
+            'train/cost_safe': cost_safe.item(),
+            'train/cost_unsafe': cost_unsafe.item(),
+            'train/reward_safe': reward_safe.item(),
+            'train/reward_unsafe': reward_unsafe.item(),
             'train/gated_reward': gated_reward_mean.item(),
             'train/unsafe_rate': unsafe_rate.item(),
             'train/v_min': self.minmax.v_min,
             'train/v_max': self.minmax.v_max,
-            'train/r_unsafe': r_unsafe,
+            'train/r_unsafe': float(r_unsafe_applied.item()),
+            'train/r_unsafe_base': r_unsafe,
             'train/r_unsafe_raw': r_unsafe_raw,
+            'train/severity': severity_mean.item(),
+            'train/c_scale': self.minmax.c_scale,
             'train/floor_active': float(floor_active),
             'train/reward_with_kl_penalty': reward_with_kl_penalty.item(),
             'train/reward_advantage': reward_advantage.item(),

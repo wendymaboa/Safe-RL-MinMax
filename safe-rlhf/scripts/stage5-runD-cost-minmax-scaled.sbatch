@@ -1,28 +1,29 @@
 #!/bin/bash
-#SBATCH --job-name=s5-runC
+#SBATCH --job-name=s5-runD
 #SBATCH --partition=biggpu
 #SBATCH --nodes=1
 #SBATCH --exclude=mscluster111
 #SBATCH --time=12:00:00
-#SBATCH --output=stage5_runC_%j.out
+#SBATCH --output=stage5_runD_%j.out
 #
-# Stage 5, RUN C — PPO + threshold-gated Minmax cost penalty.
+# Stage 5, RUN D — PPO + cost-scaled Minmax penalty.
 #
-# Identical to Run B (scripts/stage5-runB-cost-gate.sbatch) except the module and the
-# penalty: both fire on cost > --cost_threshold; B replaces reward with a fixed
-# --penalty_magnitude (-2.0), C replaces it with R_unsafe = V_MIN - V_MAX.
+# Identical to Run C except the replacement:
+#   C: cost > threshold → R_unsafe = V_MIN − V_MAX          (flat)
+#   D: cost > threshold → R_unsafe = −gap × (1 + severity)
+#      severity = min(excess / c_scale, --severity_cap)
+#      excess   = max(cost − threshold, 0)
+#      c_scale  = running mean of excess on gated samples, floored at 1.0
 #
-# C vs B isolates the thesis question — does a self-calibrating bound buy anything
-# over a fixed penalty, given the same detector and the same trigger. Do not change
-# seed, step budget, ChatML template, or cost_threshold relative to B, or the
-# comparison is no longer attributable.
+# Same detector, trigger, seed, step budget, and ChatML template as B/C.
+# C vs D isolates one change: whether a cost-magnitude slope helps after the
+# reward-range bounds lock. Do not retune other knobs or the comparison is
+# no longer attributable.
 #
-# --penalty_floor=-50 (trainer default, matching --clip_range_score) is an engineering
-# backstop only. Phase 1 floored at -2.0 because Detoxify rewards were bounded; flooring
-# here at -2.0 would make "do the bounds move past Run B's fixed penalty?" unanswerable.
-# Watch train/v_min, train/v_max, train/r_unsafe in TensorBoard.
-#
-# Memory profile is the same as Run B (~34 GB weights on a 48 GB Quadro RTX 8000).
+# Watch, in addition to C's tags:
+#   train/cost_safe, train/cost_unsafe, train/severity, train/c_scale,
+#   train/r_unsafe (mean applied penalty on gated samples),
+#   train/r_unsafe_base (the unscaled gap).
 
 set -euo pipefail
 
@@ -41,7 +42,7 @@ REPO_DIR="$HOME/Safe-RL-MinMax/safe-rlhf"
 cd "$REPO_DIR"
 export PYTHONPATH="$REPO_DIR${PYTHONPATH:+:$PYTHONPATH}"
 
-OUTPUT_DIR="$HOME/Safe-RL-MinMax/output/stage5_runC"
+OUTPUT_DIR="$HOME/Safe-RL-MinMax/output/stage5_runD"
 mkdir -p "$OUTPUT_DIR"
 
 echo "node    : $(hostname)"
@@ -49,7 +50,7 @@ echo "env     : ${CONDA_DEFAULT_ENV}"
 echo "started : $(date)"
 nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv
 
-deepspeed --num_gpus 1 --master_port 29539 \
+deepspeed --num_gpus 1 --master_port 29540 \
 	--module safe_rlhf.algorithms.ppo_cost_minmax \
 	--train_datasets PKU-SafeRLHF/train:0.126 \
 	--actor_model_name_or_path Qwen/Qwen2.5-1.5B-Instruct \
@@ -83,7 +84,9 @@ deepspeed --num_gpus 1 --master_port 29539 \
 	--cost_threshold 0.0 \
 	--penalty_floor -50.0 \
 	--bound_source reward \
-	--scale_penalty_by_cost False \
+	--scale_penalty_by_cost True \
+	--cost_scale_floor 1.0 \
+	--severity_cap 1.0 \
 	--seed 42 \
 	--use_torch_adam True \
 	--kl_coeff 0.02 \
@@ -108,7 +111,11 @@ cat "$OUTPUT_DIR"/minmax_state.json 2>/dev/null || true
 echo
 echo "read the metrics with:"
 echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/reward"
+echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/cost"
+echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/cost_safe"
+echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/cost_unsafe"
 echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/unsafe_rate"
 echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/r_unsafe"
-echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/v_min"
-echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/v_max"
+echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/r_unsafe_base"
+echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/severity"
+echo "  python scripts/dump_tb.py $OUTPUT_DIR --trend --tag train/c_scale"

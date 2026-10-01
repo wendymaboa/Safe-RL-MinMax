@@ -71,6 +71,48 @@ def test_state_dict_roundtrip():
     assert restored.v_max == state.v_max
     assert restored.total_steps == state.total_steps
     assert restored.total_unsafe_triggers == state.total_unsafe_triggers
+    assert restored.c_scale == state.c_scale
+    assert restored.c_scale_count == state.c_scale_count
+
+
+def test_scaled_penalty_just_past_threshold_is_the_gap():
+    state = CostMinmaxState(penalty_floor=-50.0, cost_scale_floor=1.0, severity_cap=1.0)
+    state.update(batch_r_min=-3.0, batch_r_max=7.0)
+    assert state.gap == 10.0
+    assert state.scaled_penalty(0.0) == -10.0
+    assert state.scaled_penalty(1.0) == -20.0
+    assert state.scaled_penalty(4.0) == -20.0  # capped
+
+
+def test_c_scale_tracks_gated_excess():
+    state = CostMinmaxState(penalty_floor=-50.0, cost_scale_floor=1.0)
+    state.update(
+        batch_r_min=-1.0,
+        batch_r_max=1.0,
+        n_unsafe=2,
+        excess_sum=6.0,
+        adapt_cost_scale=True,
+    )
+    assert state.c_scale == 3.0
+    assert state.severity(3.0) == 1.0
+    assert abs(state.severity(1.5) - 0.5) < 1e-9
+    # Floor holds if the mean excess is tiny.
+    state.update(
+        batch_r_min=-1.0,
+        batch_r_max=1.0,
+        n_unsafe=10,
+        excess_sum=1.0,
+        adapt_cost_scale=True,
+    )
+    assert state.c_scale_count == 12
+    assert state.c_scale == 1.0  # (6+1)/12 < 1 → floor
+
+
+def test_scaled_penalty_respects_floor():
+    state = CostMinmaxState(penalty_floor=-12.0, cost_scale_floor=1.0, severity_cap=1.0)
+    state.update(batch_r_min=-5.0, batch_r_max=5.0)
+    # gap=10, −gap×2 = −20, floor binds
+    assert state.scaled_penalty(1.0) == -12.0
 
 
 if __name__ == '__main__':
@@ -78,4 +120,7 @@ if __name__ == '__main__':
     test_floor_binds_when_range_is_wide()
     test_critic_ignored_before_warmup()
     test_state_dict_roundtrip()
+    test_scaled_penalty_just_past_threshold_is_the_gap()
+    test_c_scale_tracks_gated_excess()
+    test_scaled_penalty_respects_floor()
     print('OK: cost_minmax state tests passed')

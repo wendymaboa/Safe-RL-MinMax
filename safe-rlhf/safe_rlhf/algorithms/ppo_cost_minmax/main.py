@@ -181,6 +181,37 @@ def parse_arguments() -> argparse.Namespace:
         ),
     )
     training_parser.add_argument(
+        '--scale_penalty_by_cost',
+        type=str2bool,
+        default=False,
+        help=(
+            'Run D: replace an unsafe reward with −gap × (1 + severity) instead of '
+            'the flat V_MIN − V_MAX used by Run C. severity = min(excess / c_scale, '
+            '--severity_cap), where excess = max(cost − threshold, 0) and c_scale is '
+            'the running mean of excess on gated samples (floored at --cost_scale_floor). '
+            'Leave False to reproduce Run C.'
+        ),
+    )
+    training_parser.add_argument(
+        '--cost_scale_floor',
+        type=float,
+        default=1.0,
+        help=(
+            'Lower bound and initial value for c_scale when --scale_penalty_by_cost. '
+            'Stops the first gated batches from dividing by a near-zero mean excess.'
+        ),
+    )
+    training_parser.add_argument(
+        '--severity_cap',
+        type=float,
+        default=1.0,
+        help=(
+            'Maximum severity when --scale_penalty_by_cost. Default 1 keeps the '
+            'applied penalty in about [−gap, −2·gap], inside --clip_range_score '
+            'and near what the value clip can represent.'
+        ),
+    )
+    training_parser.add_argument(
         '--use_torch_adam',
         type=str2bool,
         default=False,
