@@ -80,6 +80,41 @@ def parse_arguments() -> argparse.Namespace:
         help='Whether to trust the remote code.',
     )
 
+    # LoRA — same flags as Stage 5 Runs A–D. The actor and both critics are
+    # Qwen-sized; the Beaver reward and cost models stay frozen scorers.
+    lora_parser = parser.add_argument_group('lora')
+    lora_parser.add_argument(
+        '--use_lora',
+        type=str2bool,
+        default=False,
+        help='Whether to train the actor and critics with LoRA adapters instead of full weights.',
+    )
+    lora_parser.add_argument(
+        '--lora_r',
+        type=int,
+        default=16,
+        help='Rank of the LoRA update matrices.',
+    )
+    lora_parser.add_argument(
+        '--lora_alpha',
+        type=int,
+        default=32,
+        help='LoRA scaling factor. The adapter output is scaled by lora_alpha / lora_r.',
+    )
+    lora_parser.add_argument(
+        '--lora_dropout',
+        type=float,
+        default=0.05,
+        help='Dropout probability applied to the LoRA adapter input.',
+    )
+    lora_parser.add_argument(
+        '--lora_target_modules',
+        type=str,
+        nargs='+',
+        default=None,
+        help='Module names to inject adapters into. Defaults to the PEFT per-architecture mapping.',
+    )
+
     # Dataset
     dataset_parser = parser.add_argument_group('dataset')
     dataset_parser.add_argument(
@@ -314,6 +349,13 @@ def parse_arguments() -> argparse.Namespace:
         type=int,
         default=42,
         help='A seed for reproducible training.',
+    )
+    training_parser.add_argument(
+        '--use_torch_adam',
+        type=str2bool,
+        default=False,
+        help="Use torch's AdamW instead of DeepSpeed's JIT-compiled FusedAdam. Needed where "
+        'nvcc rejects the host compiler (CUDA 11.8 supports gcc <= 11).',
     )
     training_parser.add_argument(
         '--fp16',

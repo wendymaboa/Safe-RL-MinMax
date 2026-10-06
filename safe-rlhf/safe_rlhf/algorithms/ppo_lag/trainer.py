@@ -23,6 +23,7 @@ import deepspeed
 import numpy as np
 import torch
 import torch.distributed as dist
+from peft import LoraConfig
 from transformers import PreTrainedTokenizerBase
 
 from safe_rlhf.models import AutoModelForScore, load_pretrained_models
@@ -83,6 +84,18 @@ class PPOLagTrainer(RLTrainer):
 
         if self.args.cost_critic_model_name_or_path is None:
             self.args.cost_critic_model_name_or_path = self.args.cost_model_name_or_path
+        # Same adapter as the reward critic: the score head stays trainable, the
+        # base weights do not. Required for the Stage 5 Qwen critic; a frozen
+        # Beaver-7B cost model cannot be this critic (tokenizer and memory).
+        critic_lora_config = None
+        if getattr(self.args, 'use_lora', False):
+            critic_lora_config = LoraConfig(
+                r=self.args.lora_r,
+                lora_alpha=self.args.lora_alpha,
+                lora_dropout=self.args.lora_dropout,
+                target_modules=self.args.lora_target_modules,
+                modules_to_save=['score_head'],
+            )
         self.cost_critic_model, self.cost_critic_tokenizer = load_pretrained_models(
             self.args.cost_critic_model_name_or_path,
             model_max_length=self.args.max_length,
@@ -93,6 +106,7 @@ class PPOLagTrainer(RLTrainer):
                 'score_type': 'critic',
                 'do_normalize': False,
             },
+            lora_config=critic_lora_config,
         )
         self.cost_critic_model.set_normalize(False)
 
