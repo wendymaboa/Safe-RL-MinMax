@@ -6,7 +6,7 @@ Sources, not live TensorBoard:
   Run D: dump_tb of output/stage5_runD, 2026-10-05
   Run B cost deciles were never archived (endpoints only, about -2.6 to +1.7).
   Run D mean train/cost is missing the 20-50% deciles in the captured dump.
-  Run E has not been plotted.
+  Run E: dump_tb job 65532, 2026-10-08. PPO-Lag. No unsafe_rate tag.
 
 Writes PNGs under docs/worklog/assets/figures/.
 """
@@ -44,12 +44,19 @@ R_BASE_D = [-8.076, -8.438, -8.773, -8.773, -8.773, -8.773, -8.773, -9.305, -9.4
 SEVERITY_D = [0.4269, 0.6713, 0.6899, 0.7775, 0.7629, 0.7772, 0.7357, 0.7766, 0.7824, 0.7786]
 C_SCALE_D = [3.479, 3.866, 4.046, 4.259, 4.384, 4.529, 4.659, 4.710, 4.772, 4.832]
 
+# Run E dump, job 65532, 2026-10-08. Decile means from dump_tb --trend.
+COST_E = [-2.72, -1.84, -0.9441, 0.07909, 1.14, 1.52, 1.542, 1.908, 1.827, 1.887]
+EPISODE_COST_E = [-2.699, -1.896, -1.027, 0.02625, 1.015, 1.5, 1.616, 1.803, 1.859, 1.899]
+REWARD_E = [0.4673, 1.345, 1.696, 1.804, 1.709, 1.566, 1.617, 1.523, 1.488, 1.589]
+LAMBDA_E = [0.1095, 0.02474, 0.01739, 0.01635, 0.01758, 0.02407, 0.04117, 0.7177, 5.0, 5.0]
+
 CKPTS = ['base', '50', '250', '500', '750', '950']
 PROBE_A = [-3.531, -2.422, 1.469, 6.625, 5.344, 6.625]
 PROBE_B = [-3.531, -4.062, 1.695, 3.812, 2.641, -0.773]
 
 COL_C = '#1f4e79'
 COL_D = '#b85c38'
+COL_E = '#1f6b4a'
 COL_A = '#5c5346'
 COL_SAFE = '#2f6f4e'
 COL_UNSAFE = '#8c2f39'
@@ -156,6 +163,61 @@ def fig_reward():
     finish(fig, ax, 'stage5_reward_A_vs_C_detail.png')
 
 
+def fig_cost_with_e():
+    fig, ax = plt.subplots(figsize=(7.4, 3.8))
+    style(ax)
+    ax.plot(X, COST_C, 'o-', color=COL_C, lw=2, ms=5, label='Run C  mean cost')
+    ax.plot(X, COST_D, 's-', color=COL_D, lw=1.6, ms=4, label='Run D  mean cost (20–50% not captured)')
+    ax.plot(X, COST_E, 'D-', color=COL_E, lw=2, ms=5, label='Run E  mean cost')
+    ax.plot(X, EPISODE_COST_E, 'D--', color=COL_E, lw=1.2, ms=3.5, alpha=0.85, label='Run E  episode cost')
+    ax.axhline(0, color='#9a9186', ls='--', lw=1)
+    decile_axis(ax)
+    ax.set_ylabel('Beaver cost (decile mean)')
+    ax.set_title('Batch cost — MinMax (C, D) and PPO-Lag (E)')
+    finish(fig, ax, 'stage5_cost_C_D_E.png')
+
+
+def fig_reward_with_e():
+    fig, ax = plt.subplots(figsize=(7.4, 3.6))
+    style(ax)
+    ax.plot(X, REWARD_A, 'o-', color=COL_A, lw=2, ms=5, label='Run A  reward only')
+    ax.plot(X, REWARD_C, 's-', color=COL_C, lw=2, ms=5, label='Run C  MinMax')
+    ax.plot(X, REWARD_E, 'D-', color=COL_E, lw=2, ms=5, label='Run E  PPO-Lag')
+    decile_axis(ax)
+    ax.set_ylabel('train/reward (decile mean)')
+    ax.set_title('Helpfulness score — A, C, and PPO-Lag (E)')
+    finish(fig, ax, 'stage5_reward_A_C_E.png')
+
+
+def fig_lambda():
+    fig, ax = plt.subplots(figsize=(7.4, 3.8))
+    style(ax)
+    ax.plot(X, LAMBDA_E, 'o-', color='#6b3a2a', lw=2, ms=5, label='Run E  λ')
+    ax.axhline(5.0, color='#9a9186', ls=':', lw=1, label='λ cap (5)')
+    ax.set_ylabel('λ')
+    ax.set_ylim(-0.15, 5.8)
+    ax2 = ax.twinx()
+    ax2.plot(X, COST_E, 'D--', color=COL_E, lw=1.6, ms=4, label='Run E  cost')
+    ax2.axhline(0, color='#9a9186', ls='--', lw=0.8)
+    ax2.set_ylim(-3.2, 3.2)
+    ax2.set_ylabel('train/cost')
+    ax2.tick_params(labelsize=8, colors='#3d342c')
+    ax2.spines['top'].set_visible(False)
+    handles, labels = ax.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(
+        handles + handles2,
+        labels + labels2,
+        frameon=False,
+        fontsize=8,
+        loc='upper left',
+        bbox_to_anchor=(1.12, 1.0),
+    )
+    decile_axis(ax)
+    ax.set_title('Run E — λ near 0 while cost crosses zero, then pinned at 5')
+    save(fig, 'stage5_runE_lambda_and_cost.png')
+
+
 def fig_probe():
     fig, ax = plt.subplots(figsize=(7.2, 3.6))
     style(ax)
@@ -179,6 +241,9 @@ def main():
     fig_scale()
     fig_reward()
     fig_probe()
+    fig_cost_with_e()
+    fig_reward_with_e()
+    fig_lambda()
 
 
 if __name__ == '__main__':
