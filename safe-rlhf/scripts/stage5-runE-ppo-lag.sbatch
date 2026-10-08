@@ -23,8 +23,9 @@
 #
 # The cost critic is Qwen + LoRA, same as the reward critic. Beaver-7B cannot
 # be the critic: its tokenizer is not Qwen's, and a trainable 7B does not fit
-# next to the two frozen Beaver scorers. Gradient checkpointing is on because
-# this run holds one more 1.5B model than Run B.
+# next to the two frozen Beaver scorers. Gradient checkpointing stays off, as
+# in Runs A–D: with LoRA the frozen inputs do not require grad, and checkpointing
+# made the first actor loss non-scalar (job 64646).
 
 set -euo pipefail
 
@@ -77,12 +78,10 @@ deepspeed --num_gpus 1 --master_port 29541 \
 	--actor_weight_decay 0.01 \
 	--actor_lr_scheduler_type cosine \
 	--actor_lr_warmup_ratio 0.03 \
-	--actor_gradient_checkpointing \
 	--critic_lr 5e-6 \
 	--critic_weight_decay 0.0 \
 	--critic_lr_scheduler_type constant \
 	--critic_lr_warmup_ratio 0.03 \
-	--critic_gradient_checkpointing \
 	--normalize_reward False \
 	--normalize_cost False \
 	--threshold 0.0 \
