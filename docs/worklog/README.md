@@ -31,6 +31,7 @@ flowchart TB
 | Run B | Complete — gate helps on probe; avg cost drifts | Sessions 16–17 | [06](/worklog/phase2/06-run-b.md) |
 | Run C | Trained + inspected; cost rescore pending | Sessions 18–19 | [07](/worklog/phase2/07-run-c.md) |
 | Claims | A+B solid; C partial (bounds move, drift remains) | — | [10](/worklog/10-claims.md) |
+| Handoff | Goal, cluster setup, failures already paid for | 2026-10-14 | [12](/worklog/12-handoff.md) |
 
 ## Guided reading order
 

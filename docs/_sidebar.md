@@ -1,5 +1,6 @@
 * [Home](/worklog/README.md)
 * [How to read these worklogs](/worklog/00-how-to-read.md)
+* [Handoff (new machine)](/worklog/12-handoff.md)
 * [Foundations (one-pager)](/worklog/fundamentals.md)
 * [Architecture atlas (P1 → P2)](/worklog/architecture.md)
 

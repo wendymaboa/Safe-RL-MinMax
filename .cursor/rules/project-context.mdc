@@ -1,0 +1,16 @@
+---
+description: Project goal, locked stack, and failures already paid for
+alwaysApply: true
+---
+
+# Safe-RL-MinMax context
+
+Read `docs/worklog/12-handoff.md` before proposing experiments, claims, or cluster changes.
+
+The question is whether a cost-gated MinMax penalty beats a matched fixed gate (Run B vs Run C) on Qwen2.5-1.5B-Instruct + LoRA inside PKU Safe RLHF. Beating reward-only PPO is not a MinMax result.
+
+Locked: ChatML, Beaver reward and cost frozen, threshold `cost > 0`, Qwen LoRA critics, seed 42, 1062 steps, fp16, ZeRO-2, `--use_torch_adam True`. Beaver cannot be the critic (tokenizer mismatch, and a trainable 7B does not fit beside the two frozen scorers on one 48 GB RTX 8000).
+
+Next: rescore Run C lock-picking text with `safe-rlhf/scripts/rescore-lockpicking.sbatch`. Do not start a new stack first.
+
+Do not claim MinMax beats B, or that Run E reproduced Safe RLHF. Run E is their PPO-Lag update on this stack; λ collapsed because cost started near −2.7. Alpaca-template Stage 5 numbers are void. Cluster: no `--gres`; exclude `mscluster65`, `83`, `111`; env `safe-rlhf-cu128`; outputs stay on the cluster, not in git.

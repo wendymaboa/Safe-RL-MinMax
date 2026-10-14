@@ -17,6 +17,8 @@ Research workspace for safe reinforcement learning with a MinMax penalty: Phase 
 
 Root stays minimal: `README.md`, `.gitignore`, and the folders above.
 
+Moving machines or opening a fresh workspace: read [`docs/worklog/12-handoff.md`](docs/worklog/12-handoff.md) first. It has the current claim, the cluster setup, and the failures already paid for. The cluster env and checkpoints stay on Wits `mscluster`; this PC only needs the clone.
+
 ## Worklog site (GitHub Pages)
 
 | On site | Source file |
